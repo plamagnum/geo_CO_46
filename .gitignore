@@ -1,0 +1,19 @@
+# Docker volumes data
+mysql_data/
+
+# Parser output (except .gitkeep)
+parsers/output/*
+!parsers/output/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# PHP logs
+*.log
