@@ -252,6 +252,11 @@ const TestEngine = {
             try {
                 result = JSON.parse(responseText);
             } catch (parseError) {
+                console.error('Невалідна відповідь сервера', {
+                    status: response.status,
+                    contentType: response.headers.get('content-type'),
+                    bodyPreview: responseText.slice(0, 500),
+                });
                 if (response.redirected) {
                     throw new Error('Сесію завершено. Увійдіть знову і повторіть спробу.');
                 }

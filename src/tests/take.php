@@ -52,14 +52,29 @@ foreach ($questions as &$question) {
 unset($question);
 
 // Обробка результатів після завершення тесту (AJAX запит)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'submit_test') {
-    header('Content-Type: application/json; charset=utf-8');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (ob_get_level() === 0) {
+        ob_start();
+    }
+
+    $sendJson = static function (array $payload, int $status = 200): void {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        header('X-Content-Type-Options: nosniff');
+        if (ob_get_length() !== false && ob_get_length() > 0) {
+            ob_clean();
+        }
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
+    };
+
+    if (!isset($_POST['action']) || $_POST['action'] !== 'submit_test') {
+        $sendJson(['success' => false, 'error' => 'Некоректний тип запиту'], 400);
+    }
 
     // Перевірка CSRF
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Помилка безпеки']);
-        exit;
+        $sendJson(['success' => false, 'error' => 'Помилка безпеки'], 400);
     }
 
     try {
@@ -101,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt->execute([$userId, $topicId, $totalCount, $correctCount, $scorePercent]);
         $resultId = $pdo->lastInsertId();
 
-        echo json_encode([
+        $sendJson([
             'success'        => true,
             'correct'        => $correctCount,
             'total'          => $totalCount,
@@ -111,13 +126,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         ]);
     } catch (Throwable $e) {
         error_log('Помилка збереження результату тесту: ' . $e->getMessage());
-        http_response_code(500);
-        echo json_encode([
+        $sendJson([
             'success' => false,
             'error' => 'Не вдалося зберегти результат тесту. Спробуйте ще раз.'
-        ]);
+        ], 500);
     }
-    exit;
 }
 
 $csrfToken = generateCsrfToken();
