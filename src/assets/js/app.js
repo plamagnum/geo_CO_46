@@ -242,7 +242,8 @@ const TestEngine = {
         }
 
         try {
-            const response = await fetch(form.action || window.location.href, {
+            // form.action перекривається полем <input name="action">, тому беремо атрибут напряму
+            const response = await fetch(form.getAttribute('action') || window.location.href, {
                 method: 'POST',
                 body: formData,
             });
