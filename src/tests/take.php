@@ -53,60 +53,70 @@ unset($question);
 
 // Обробка результатів після завершення тесту (AJAX запит)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'submit_test') {
-    header('Content-Type: application/json');
+    header('Content-Type: application/json; charset=utf-8');
 
     // Перевірка CSRF
     if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Помилка безпеки']);
         exit;
     }
 
-    $userAnswers = $_POST['answers'] ?? [];
-    $correctCount = 0;
-    $totalCount = count($questions);
-    $results = [];
+    try {
+        $userAnswers = $_POST['answers'] ?? [];
+        $correctCount = 0;
+        $totalCount = count($questions);
+        $results = [];
 
-    foreach ($questions as $question) {
-        $selectedAnswerId = (int)($userAnswers[$question['id']] ?? 0);
-        $correctAnswerId  = 0;
+        foreach ($questions as $question) {
+            $selectedAnswerId = (int)($userAnswers[$question['id']] ?? 0);
+            $correctAnswerId  = 0;
 
-        foreach ($question['answers'] as $answer) {
-            if ($answer['is_correct']) {
-                $correctAnswerId = (int)$answer['id'];
-                break;
+            foreach ($question['answers'] as $answer) {
+                if ($answer['is_correct']) {
+                    $correctAnswerId = (int)$answer['id'];
+                    break;
+                }
             }
+
+            $isCorrect = ($selectedAnswerId === $correctAnswerId);
+            if ($isCorrect) {
+                $correctCount++;
+            }
+
+            $results[$question['id']] = [
+                'selected'  => $selectedAnswerId,
+                'correct'   => $correctAnswerId,
+                'is_correct' => $isCorrect,
+            ];
         }
 
-        $isCorrect = ($selectedAnswerId === $correctAnswerId);
-        if ($isCorrect) {
-            $correctCount++;
-        }
+        $scorePercent = $totalCount > 0 ? round(($correctCount / $totalCount) * 100, 2) : 0;
 
-        $results[$question['id']] = [
-            'selected'  => $selectedAnswerId,
-            'correct'   => $correctAnswerId,
-            'is_correct' => $isCorrect,
-        ];
+        // Збереження результату в БД
+        $stmt = $pdo->prepare('
+            INSERT INTO test_results (user_id, topic_id, total_questions, correct_answers, score_percent)
+            VALUES (?, ?, ?, ?, ?)
+        ');
+        $stmt->execute([$userId, $topicId, $totalCount, $correctCount, $scorePercent]);
+        $resultId = $pdo->lastInsertId();
+
+        echo json_encode([
+            'success'        => true,
+            'correct'        => $correctCount,
+            'total'          => $totalCount,
+            'score_percent'  => $scorePercent,
+            'results'        => $results,
+            'result_id'      => $resultId,
+        ]);
+    } catch (Throwable $e) {
+        error_log('Помилка збереження результату тесту: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Не вдалося зберегти результат тесту. Спробуйте ще раз.'
+        ]);
     }
-
-    $scorePercent = $totalCount > 0 ? round(($correctCount / $totalCount) * 100, 2) : 0;
-
-    // Збереження результату в БД
-    $stmt = $pdo->prepare('
-        INSERT INTO test_results (user_id, topic_id, total_questions, correct_answers, score_percent)
-        VALUES (?, ?, ?, ?, ?)
-    ');
-    $stmt->execute([$userId, $topicId, $totalCount, $correctCount, $scorePercent]);
-    $resultId = $pdo->lastInsertId();
-
-    echo json_encode([
-        'success'        => true,
-        'correct'        => $correctCount,
-        'total'          => $totalCount,
-        'score_percent'  => $scorePercent,
-        'results'        => $results,
-        'result_id'      => $resultId,
-    ]);
     exit;
 }
 

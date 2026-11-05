@@ -246,8 +246,17 @@ const TestEngine = {
                 method: 'POST',
                 body: formData,
             });
+            const responseText = await response.text();
+            let result;
 
-            const result = await response.json();
+            try {
+                result = JSON.parse(responseText);
+            } catch (parseError) {
+                if (response.redirected) {
+                    throw new Error('Сесію завершено. Увійдіть знову і повторіть спробу.');
+                }
+                throw new Error('Сервер повернув невалідну відповідь. Спробуйте ще раз.');
+            }
 
             if (result.success) {
                 this.testCompleted = true;
@@ -257,7 +266,7 @@ const TestEngine = {
             }
         } catch (err) {
             console.error('Помилка при відправці тесту:', err);
-            alert('Помилка з\'єднання. Спробуйте ще раз.');
+            alert(err.message || 'Помилка з\'єднання. Спробуйте ще раз.');
         }
     },
 
