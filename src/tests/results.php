@@ -16,13 +16,12 @@ $totalTests = $pdo->prepare('SELECT COUNT(*) FROM test_results WHERE user_id = ?
 $totalTests->execute([$userId]);
 $totalTests = $totalTests->fetchColumn();
 
-$avgScore = $pdo->prepare('SELECT AVG(score_percent) FROM test_results WHERE user_id = ?');
-$avgScore->execute([$userId]);
-$avgScore = round($avgScore->fetchColumn() ?? 0, 1);
+$scoresStmt = $pdo->prepare('SELECT score_percent FROM test_results WHERE user_id = ?');
+$scoresStmt->execute([$userId]);
+$allScores = $scoresStmt->fetchAll(PDO::FETCH_COLUMN);
 
-$bestScore = $pdo->prepare('SELECT MAX(score_percent) FROM test_results WHERE user_id = ?');
-$bestScore->execute([$userId]);
-$bestScore = round($bestScore->fetchColumn() ?? 0, 1);
+$avgGrade  = averageGrade($allScores);
+$bestGrade = empty($allScores) ? 0 : scoreToGrade((float)max($allScores));
 
 // Список результатів з пагінацією
 $page    = max(1, (int)($_GET['page'] ?? 1));
@@ -65,12 +64,12 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
     <div class="stat-card">
         <div class="stat-icon">⭐</div>
-        <div class="stat-value"><?= $avgScore ?>%</div>
+        <div class="stat-value"><?= $avgGrade ?> / 12</div>
         <div class="stat-label">Середній бал</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon">🏆</div>
-        <div class="stat-value"><?= $bestScore ?>%</div>
+        <div class="stat-value"><?= $bestGrade ?> / 12</div>
         <div class="stat-label">Найкращий результат</div>
     </div>
 </div>
@@ -104,8 +103,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <td><?= e($result['class_name']) ?></td>
                         <td><?= (int)$result['correct_answers'] ?> / <?= (int)$result['total_questions'] ?></td>
                         <td>
-                            <span class="score-badge <?= $result['score_percent'] >= 60 ? 'good' : 'bad' ?>">
-                                <?= round($result['score_percent']) ?>%
+                            <?php $grade = scoreToGrade((float)$result['score_percent']); ?>
+                            <span class="score-badge <?= isGoodScore((float)$result['score_percent']) ? 'good' : 'bad' ?>"
+                                  title="<?= round($result['score_percent']) ?>%">
+                                <?= $grade ?> <?= gradeWord($grade) ?>
                             </span>
                         </td>
                         <td><?= date('d.m.Y H:i', strtotime($result['completed_at'])) ?></td>

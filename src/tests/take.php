@@ -121,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'correct'        => $correctCount,
             'total'          => $totalCount,
             'score_percent'  => $scorePercent,
+            'grade'          => scoreToGrade((float)$scorePercent),
             'results'        => $results,
             'result_id'      => $resultId,
         ]);
@@ -223,8 +224,8 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
-// Дані запитань для JavaScript
-const questionsData = <?= json_encode(array_map(function($q) {
+// Дані запитань для JavaScript (через window, бо const не потрапляє у window)
+window.questionsData = <?= json_encode(array_map(function($q) {
     return [
         'id'      => (int)$q['id'],
         'text'    => $q['text'],

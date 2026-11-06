@@ -99,12 +99,24 @@ require_once __DIR__ . '/../includes/header.php';
     <h1 class="page-title">Управління запитаннями</h1>
     <div class="header-actions">
         <a href="/admin/index.php" class="btn btn-outline">← Назад</a>
-        <button class="btn btn-secondary" onclick="toggleImportForm()">📥 Імпорт JSON</button>
+        <button type="button" class="btn btn-secondary" onclick="toggleImportForm()">📥 Імпорт JSON</button>
     </div>
 </div>
 
 <?php if ($message): ?><div class="alert alert-success"><?= e($message) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+
+<!-- Форма імпорту JSON -->
+<div class="admin-form-card" id="importForm" style="display:none">
+    <h2>Імпорт запитань через JSON</h2>
+    <p>Вставте JSON у форматі API або <a href="/api/import-questions.php" target="_blank">використайте API endpoint</a>.</p>
+    <div class="form-group">
+        <label class="form-label">JSON дані</label>
+        <textarea id="jsonImportData" class="form-textarea" rows="10" placeholder='{"topic_id": 1, "questions": [...]}'></textarea>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="importQuestions()">Імпортувати</button>
+    <div id="importResult"></div>
+</div>
 
 <!-- Форма додавання запитання -->
 <div class="admin-form-card">
@@ -152,18 +164,6 @@ require_once __DIR__ . '/../includes/header.php';
 
         <button type="submit" class="btn btn-primary">Додати запитання</button>
     </form>
-</div>
-
-<!-- Форма імпорту JSON -->
-<div class="admin-form-card" id="importForm" style="display:none">
-    <h2>Імпорт запитань через JSON</h2>
-    <p>Вставте JSON у форматі API або <a href="/api/import-questions.php" target="_blank">використайте API endpoint</a>.</p>
-    <div class="form-group">
-        <label class="form-label">JSON дані</label>
-        <textarea id="jsonImportData" class="form-textarea" rows="10" placeholder='{"topic_id": 1, "questions": [...]}'></textarea>
-    </div>
-    <button type="button" class="btn btn-primary" onclick="importQuestions()">Імпортувати</button>
-    <div id="importResult"></div>
 </div>
 
 <!-- Фільтр -->
@@ -220,7 +220,12 @@ require_once __DIR__ . '/../includes/header.php';
 <script>
 function toggleImportForm() {
     const form = document.getElementById('importForm');
-    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    const isHidden = form.style.display === 'none';
+    form.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('jsonImportData').focus({ preventScroll: true });
+    }
 }
 
 async function importQuestions() {

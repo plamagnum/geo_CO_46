@@ -30,9 +30,9 @@ if ($isLogged) {
         $stats['my_tests']->execute([$userId]);
         $stats['my_tests'] = $stats['my_tests']->fetchColumn();
 
-        $avgStmt = $pdo->prepare('SELECT AVG(score_percent) FROM test_results WHERE user_id = ?');
-        $avgStmt->execute([$userId]);
-        $stats['avg_score'] = round($avgStmt->fetchColumn() ?? 0, 1);
+        $scoresStmt = $pdo->prepare('SELECT score_percent FROM test_results WHERE user_id = ?');
+        $scoresStmt->execute([$userId]);
+        $stats['avg_grade'] = averageGrade($scoresStmt->fetchAll(PDO::FETCH_COLUMN));
 
         $lastResultStmt = $pdo->prepare('
             SELECT tr.*, t.name as topic_name, s.name as subject_name
@@ -165,7 +165,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
             <div class="stat-card">
                 <div class="stat-icon">⭐</div>
-                <div class="stat-value"><?= $stats['avg_score'] ?>%</div>
+                <div class="stat-value"><?= $stats['avg_grade'] ?> / 12</div>
                 <div class="stat-label">Середній бал</div>
             </div>
         </div>
@@ -198,8 +198,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <strong><?= e($result['topic_name']) ?></strong>
                                 <small><?= e($result['subject_name']) ?></small>
                             </div>
-                            <div class="result-score <?= $result['score_percent'] >= 60 ? 'good' : 'bad' ?>">
-                                <?= round($result['score_percent']) ?>%
+                            <?php $grade = scoreToGrade((float)$result['score_percent']); ?>
+                            <div class="result-score <?= isGoodScore((float)$result['score_percent']) ? 'good' : 'bad' ?>"
+                                 title="<?= round($result['score_percent']) ?>%">
+                                <?= $grade ?> <?= gradeWord($grade) ?>
                             </div>
                         </div>
                     <?php endforeach; ?>

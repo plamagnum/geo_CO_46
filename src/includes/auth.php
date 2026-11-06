@@ -214,3 +214,56 @@ function verifyCsrfToken(string $token): bool {
 function e(string $str): string {
     return htmlspecialchars($str, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
+
+/**
+ * Переведення відсотка правильних відповідей у бал за 12-бальною шкалою (мінімум 1)
+ *
+ * @param float $percent
+ * @return int
+ */
+function scoreToGrade(float $percent): int {
+    $percent = max(0, min(100, $percent));
+    return max(1, (int)round($percent * 12 / 100));
+}
+
+/**
+ * Відмінювання слова "бал" для числа
+ *
+ * @param int|float $grade
+ * @return string
+ */
+function gradeWord($grade): string {
+    if ((float)$grade !== floor((float)$grade)) {
+        return 'бала';
+    }
+    $n = (int)$grade % 100;
+    if ($n >= 11 && $n <= 14) return 'балів';
+    $n %= 10;
+    if ($n === 1) return 'бал';
+    if ($n >= 2 && $n <= 4) return 'бали';
+    return 'балів';
+}
+
+/**
+ * Достатній рівень навчальних досягнень починається з 7 балів
+ *
+ * @param float $percent
+ * @return bool
+ */
+function isGoodScore(float $percent): bool {
+    return scoreToGrade($percent) >= 7;
+}
+
+/**
+ * Середній бал за 12-бальною шкалою для набору відсотків
+ *
+ * @param array $percents
+ * @return float
+ */
+function averageGrade(array $percents): float {
+    if (empty($percents)) {
+        return 0;
+    }
+    $sum = array_sum(array_map(fn($p) => scoreToGrade((float)$p), $percents));
+    return round($sum / count($percents), 1);
+}

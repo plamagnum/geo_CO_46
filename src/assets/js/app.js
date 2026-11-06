@@ -284,20 +284,22 @@ const TestEngine = {
         const resultsDiv = document.getElementById('testResults');
         resultsDiv.style.display = 'block';
 
-        // Відображення рахунку
-        document.getElementById('scoreNumber').textContent = Math.round(result.score_percent) + '%';
+        // Відображення оцінки за 12-бальною шкалою
+        const grade = result.grade;
+        const isGood = grade >= 7;
+        document.getElementById('scoreNumber').textContent = grade;
         document.getElementById('scoreDetails').textContent =
-            `Правильних відповідей: ${result.correct} з ${result.total}`;
+            `${grade} ${this.gradeWord(grade)} з 12 · Правильних відповідей: ${result.correct} з ${result.total} (${Math.round(result.score_percent)}%)`;
 
         // Іконка залежно від результату
         const icon = document.getElementById('resultsIcon');
-        if (result.score_percent >= 90) icon.textContent = '🏆';
-        else if (result.score_percent >= 60) icon.textContent = '🎉';
+        if (grade >= 10) icon.textContent = '🏆';
+        else if (isGood) icon.textContent = '🎉';
         else icon.textContent = '📚';
 
         // Колір кола залежно від результату
         const circle = document.getElementById('scoreCircle');
-        if (result.score_percent >= 60) {
+        if (isGood) {
             circle.style.borderColor = 'var(--success)';
             document.getElementById('scoreNumber').style.color = 'var(--success)';
         } else {
@@ -312,6 +314,21 @@ const TestEngine = {
                 this.showReview(result.results);
             });
         }
+    },
+
+    gradeWord(n) {
+        const mod100 = n % 100;
+        if (mod100 >= 11 && mod100 <= 14) return 'балів';
+        const mod10 = n % 10;
+        if (mod10 === 1) return 'бал';
+        if (mod10 >= 2 && mod10 <= 4) return 'бали';
+        return 'балів';
+    },
+
+    escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = String(str);
+        return div.innerHTML;
     },
 
     showReview(results) {
@@ -338,11 +355,11 @@ const TestEngine = {
                 let style = '';
                 if (isCorrect) style = 'color: var(--success); font-weight: 600;';
                 else if (isSelected && !isCorrect) style = 'color: var(--danger);';
-                answersHtml += `<div style="${style}">${isCorrect ? '✓' : (isSelected ? '✗' : '○')} ${answer.text}</div>`;
+                answersHtml += `<div style="${style}">${isCorrect ? '✓' : (isSelected ? '✗' : '○')} ${this.escapeHtml(answer.text)}</div>`;
             });
 
             item.innerHTML = `
-                <div class="review-question">${icon} ${question.text}</div>
+                <div class="review-question">${icon} ${this.escapeHtml(question.text)}</div>
                 <div class="review-answers">${answersHtml}</div>
             `;
             reviewList.appendChild(item);

@@ -126,8 +126,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <td><?= e($result['class_name']) ?></td>
                         <td><?= (int)$result['correct_answers'] ?> / <?= (int)$result['total_questions'] ?></td>
                         <td>
-                            <span class="score-badge <?= $result['score_percent'] >= 60 ? 'good' : 'bad' ?>">
-                                <?= round($result['score_percent']) ?>%
+                            <?php $grade = scoreToGrade((float)$result['score_percent']); ?>
+                            <span class="score-badge <?= isGoodScore((float)$result['score_percent']) ? 'good' : 'bad' ?>"
+                                  title="<?= round($result['score_percent']) ?>%">
+                                <?= $grade ?> <?= gradeWord($grade) ?>
                             </span>
                         </td>
                         <td><?= date('d.m.Y H:i', strtotime($result['completed_at'])) ?></td>
