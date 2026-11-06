@@ -30,6 +30,7 @@ $topicsQuery = '
     JOIN subjects s ON t.subject_id = s.id
     JOIN classes c ON t.class_id = c.id
     LEFT JOIN questions q ON q.topic_id = t.id
+        AND EXISTS (SELECT 1 FROM answers a WHERE a.question_id = q.id AND a.is_correct = 1)
     WHERE 1=1
 ';
 $params = [];

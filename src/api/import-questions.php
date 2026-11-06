@@ -87,6 +87,7 @@ if (!$stmt->fetch()) {
 // Імпорт запитань транзакцією
 $pdo->beginTransaction();
 $importedCount = 0;
+$withoutCorrect = 0;
 $errors        = [];
 
 try {
@@ -114,8 +115,7 @@ try {
         }
 
         if (!$hasCorrect) {
-            $errors[] = "Запитання #" . ($index + 1) . ": не вказана правильна відповідь.";
-            continue;
+            $withoutCorrect++;
         }
 
         // Вставка запитання
@@ -150,5 +150,6 @@ echo json_encode([
     'success'  => true,
     'imported' => $importedCount,
     'errors'   => $errors,
+    'without_correct' => $withoutCorrect,
     'message'  => "Успішно імпортовано {$importedCount} запитань.",
 ]);

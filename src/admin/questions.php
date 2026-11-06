@@ -42,6 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $message = 'Запитання додано успішно.';
             }
+        } elseif ($action === 'set_correct' && $questionId > 0) {
+            $answerId = (int)($_POST['answer_id'] ?? 0);
+            $stmt = $pdo->prepare('SELECT id FROM answers WHERE id = ? AND question_id = ?');
+            $stmt->execute([$answerId, $questionId]);
+            if ($stmt->fetch()) {
+                $stmt = $pdo->prepare('UPDATE answers SET is_correct = (id = ?) WHERE question_id = ?');
+                $stmt->execute([$answerId, $questionId]);
+                $message = 'Правильну відповідь збережено.';
+            } else {
+                $error = 'Відповідь не знайдено.';
+            }
         } elseif ($action === 'delete' && $questionId > 0) {
             $stmt = $pdo->prepare('DELETE FROM questions WHERE id = ?');
             $stmt->execute([$questionId]);
@@ -52,6 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Фільтрація
 $filterTopic = (int)($_GET['topic_id'] ?? 0);
+$filterUnmarked = !empty($_GET['unmarked']);
+
+$hasCorrectSql = 'EXISTS (SELECT 1 FROM answers a WHERE a.question_id = q.id AND a.is_correct = 1)';
+$unmarkedCount = (int)$pdo->query("SELECT COUNT(*) FROM questions q WHERE NOT $hasCorrectSql")->fetchColumn();
 
 // Завантаження запитань
 $questionsQuery = '
@@ -67,6 +82,9 @@ $params = [];
 if ($filterTopic > 0) {
     $questionsQuery .= ' AND q.topic_id = ?';
     $params[] = $filterTopic;
+}
+if ($filterUnmarked) {
+    $questionsQuery .= " AND NOT $hasCorrectSql";
 }
 $questionsQuery .= ' ORDER BY t.name, q.id DESC LIMIT 100';
 
@@ -179,17 +197,34 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endforeach; ?>
         </select>
     </div>
+    <div class="filter-group">
+        <label class="filter-label">
+            <input type="checkbox" name="unmarked" value="1" <?= $filterUnmarked ? 'checked' : '' ?> onchange="this.form.submit()">
+            Лише без правильної відповіді (<?= $unmarkedCount ?>)
+        </label>
+    </div>
 </form>
+
+<?php if ($unmarkedCount > 0): ?>
+    <div class="alert alert-error">
+        ⚠ <?= $unmarkedCount ?> запитань без правильної відповіді — вони не потрапляють у тести.
+        Натисніть на правильний варіант, щоб позначити його.
+    </div>
+<?php endif; ?>
 
 <!-- Список запитань -->
 <div class="questions-admin-list">
     <?php foreach ($questions as $question): ?>
-        <div class="question-admin-card">
+        <?php $hasCorrect = (bool)array_filter($question['answers'], fn($a) => $a['is_correct']); ?>
+        <div class="question-admin-card" <?= $hasCorrect ? '' : 'style="border-left: 4px solid var(--danger)"' ?>>
             <div class="question-admin-header">
                 <div class="question-admin-meta">
                     <span class="badge"><?= e($question['class_name']) ?></span>
                     <span class="badge badge-secondary"><?= e($question['subject_name']) ?></span>
                     <span class="badge badge-info"><?= e($question['topic_name']) ?></span>
+                    <?php if (!$hasCorrect): ?>
+                        <span class="badge" style="background: var(--danger); color: #fff">Без відповіді</span>
+                    <?php endif; ?>
                 </div>
                 <form method="POST" action="" style="display:inline" onsubmit="return confirm('Видалити запитання?')">
                     <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
@@ -199,13 +234,19 @@ require_once __DIR__ . '/../includes/header.php';
                 </form>
             </div>
             <p class="question-admin-text"><?= e($question['text']) ?></p>
-            <div class="answers-preview">
+            <form method="POST" action="" class="answers-preview">
+                <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                <input type="hidden" name="action" value="set_correct">
+                <input type="hidden" name="question_id" value="<?= (int)$question['id'] ?>">
                 <?php foreach ($question['answers'] as $answer): ?>
-                    <span class="answer-preview <?= $answer['is_correct'] ? 'correct' : '' ?>">
+                    <button type="submit" name="answer_id" value="<?= (int)$answer['id'] ?>"
+                            class="answer-preview <?= $answer['is_correct'] ? 'correct' : '' ?>"
+                            style="cursor: pointer; border: none; font: inherit; text-align: left"
+                            title="Позначити як правильну">
                         <?= $answer['is_correct'] ? '✓' : '○' ?> <?= e($answer['text']) ?>
-                    </span>
+                    </button>
                 <?php endforeach; ?>
-            </div>
+            </form>
         </div>
     <?php endforeach; ?>
 
@@ -265,9 +306,13 @@ async function importQuestions() {
             : '';
 
         if (result.success && result.imported > 0) {
+            const unmarkedHtml = result.without_correct > 0
+                ? `<div class="alert alert-error">⚠ ${result.without_correct} з них без правильної відповіді. <a href="?unmarked=1">Позначити відповіді →</a></div>`
+                : '';
             resultDiv.innerHTML = `<div class="alert alert-success">✓ Імпортовано ${result.imported} запитань!</div>`
+                + unmarkedHtml
                 + (errorsHtml ? `<div class="alert alert-error">Пропущено:${errorsHtml}</div>` : '');
-            if (!errorsHtml) {
+            if (!errorsHtml && !unmarkedHtml) {
                 setTimeout(() => location.reload(), 2000);
             }
         } else if (result.success) {

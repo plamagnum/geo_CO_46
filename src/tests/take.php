@@ -34,7 +34,13 @@ if (!$topic) {
 }
 
 // Завантаження запитань з відповідями
-$stmt = $pdo->prepare('SELECT * FROM questions WHERE topic_id = ? ORDER BY RAND()');
+// Лише запитання з позначеною правильною відповіддю
+$stmt = $pdo->prepare('
+    SELECT q.* FROM questions q
+    WHERE q.topic_id = ?
+      AND EXISTS (SELECT 1 FROM answers a WHERE a.question_id = q.id AND a.is_correct = 1)
+    ORDER BY RAND()
+');
 $stmt->execute([$topicId]);
 $questions = $stmt->fetchAll();
 
