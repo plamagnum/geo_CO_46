@@ -228,6 +228,12 @@ function toggleImportForm() {
     }
 }
 
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+
 async function importQuestions() {
     const jsonData = document.getElementById('jsonImportData').value.trim();
     const resultDiv = document.getElementById('importResult');
@@ -254,11 +260,20 @@ async function importQuestions() {
         });
         const result = await response.json();
 
-        if (result.success) {
-            resultDiv.innerHTML = `<div class="alert alert-success">✓ Імпортовано ${result.imported} запитань!</div>`;
-            setTimeout(() => location.reload(), 2000);
+        const errorsHtml = (result.errors || []).length
+            ? '<ul>' + result.errors.map(err => `<li>${escapeHtml(err)}</li>`).join('') + '</ul>'
+            : '';
+
+        if (result.success && result.imported > 0) {
+            resultDiv.innerHTML = `<div class="alert alert-success">✓ Імпортовано ${result.imported} запитань!</div>`
+                + (errorsHtml ? `<div class="alert alert-error">Пропущено:${errorsHtml}</div>` : '');
+            if (!errorsHtml) {
+                setTimeout(() => location.reload(), 2000);
+            }
+        } else if (result.success) {
+            resultDiv.innerHTML = `<div class="alert alert-error">Жодного запитання не імпортовано.${errorsHtml}</div>`;
         } else {
-            resultDiv.innerHTML = `<div class="alert alert-error">Помилка: ${result.error}</div>`;
+            resultDiv.innerHTML = `<div class="alert alert-error">Помилка: ${escapeHtml(result.error || 'Невідома помилка')}</div>`;
         }
     } catch (e) {
         resultDiv.innerHTML = '<div class="alert alert-error">Помилка з\'єднання з сервером</div>';

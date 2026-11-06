@@ -95,12 +95,12 @@ try {
         $answers      = $questionData['answers'] ?? [];
 
         if (empty($questionText)) {
-            $errors[] = "Запитання #{$index}: відсутній текст.";
+            $errors[] = "Запитання #" . ($index + 1) . ": відсутній текст.";
             continue;
         }
 
         if (count($answers) < 2) {
-            $errors[] = "Запитання #{$index}: потрібно мінімум 2 варіанти відповідей.";
+            $errors[] = "Запитання #" . ($index + 1) . ": потрібно мінімум 2 варіанти відповідей.";
             continue;
         }
 
@@ -114,7 +114,7 @@ try {
         }
 
         if (!$hasCorrect) {
-            $errors[] = "Запитання #{$index}: не вказана правильна відповідь.";
+            $errors[] = "Запитання #" . ($index + 1) . ": не вказана правильна відповідь.";
             continue;
         }
 
