@@ -53,6 +53,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = 'Відповідь не знайдено.';
             }
+        } elseif ($action === 'bulk_delete') {
+            $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['question_ids'] ?? [])))));
+            if (empty($ids)) {
+                $error = 'Не вибрано жодного запитання.';
+            } else {
+                $in = implode(',', array_fill(0, count($ids), '?'));
+                $stmt = $pdo->prepare("DELETE FROM questions WHERE id IN ($in)");
+                $stmt->execute($ids);
+                $message = 'Видалено запитань: ' . $stmt->rowCount() . '.';
+            }
         } elseif ($action === 'delete' && $questionId > 0) {
             $stmt = $pdo->prepare('DELETE FROM questions WHERE id = ?');
             $stmt->execute([$questionId]);
@@ -212,6 +222,20 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 <?php endif; ?>
 
+<!-- Масові дії -->
+<?php if (!empty($questions)): ?>
+    <form method="POST" action="" id="bulkForm" class="bulk-bar"
+          onsubmit="return confirm('Видалити вибрані запитання (' + selectedCount() + ')?')">
+        <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+        <input type="hidden" name="action" value="bulk_delete">
+        <label class="bulk-select-all">
+            <input type="checkbox" id="selectAll"> Вибрати всі на сторінці
+        </label>
+        <span class="bulk-count">Вибрано: <b id="selectedCount">0</b></span>
+        <button type="submit" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>🗑 Видалити вибрані</button>
+    </form>
+<?php endif; ?>
+
 <!-- Список запитань -->
 <div class="questions-admin-list">
     <?php foreach ($questions as $question): ?>
@@ -219,6 +243,8 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="question-admin-card" <?= $hasCorrect ? '' : 'style="border-left: 4px solid var(--danger)"' ?>>
             <div class="question-admin-header">
                 <div class="question-admin-meta">
+                    <input type="checkbox" class="question-select" name="question_ids[]" form="bulkForm"
+                           value="<?= (int)$question['id'] ?>" aria-label="Вибрати запитання">
                     <span class="badge"><?= e($question['class_name']) ?></span>
                     <span class="badge badge-secondary"><?= e($question['subject_name']) ?></span>
                     <span class="badge badge-info"><?= e($question['topic_name']) ?></span>
@@ -259,6 +285,51 @@ require_once __DIR__ . '/../includes/header.php';
 </div>
 
 <script>
+// Масовий вибір
+const questionBoxes = document.querySelectorAll('.question-select');
+const selectAllBox  = document.getElementById('selectAll');
+
+function selectedCount() {
+    return document.querySelectorAll('.question-select:checked').length;
+}
+
+function updateBulkBar() {
+    const count = selectedCount();
+    const counter = document.getElementById('selectedCount');
+    const button  = document.getElementById('bulkDeleteBtn');
+    if (!counter) return;
+    counter.textContent = count;
+    button.disabled = count === 0;
+    selectAllBox.checked = count > 0 && count === questionBoxes.length;
+    selectAllBox.indeterminate = count > 0 && count < questionBoxes.length;
+    questionBoxes.forEach(box => box.closest('.question-admin-card').classList.toggle('selected', box.checked));
+}
+
+questionBoxes.forEach(box => box.addEventListener('change', updateBulkBar));
+selectAllBox?.addEventListener('change', () => {
+    questionBoxes.forEach(box => { box.checked = selectAllBox.checked; });
+    updateBulkBar();
+});
+
+// Збереження позиції прокрутки після відправки форм на цій сторінці
+const SCROLL_KEY = 'questionsScroll:' + location.pathname + location.search;
+document.querySelectorAll('form[method="POST"]').forEach(form => {
+    form.addEventListener('submit', () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)));
+});
+(function restoreScroll() {
+    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (saved === null) return;
+    sessionStorage.removeItem(SCROLL_KEY);
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, parseInt(saved, 10) || 0);
+    // Повідомлення вгорі сторінки не видно — показуємо його поверх контенту
+    document.querySelectorAll('.admin-header ~ .alert-success, .admin-header ~ .alert-error').forEach((alert, i) => {
+        if (i > 1) return;
+        alert.classList.add('alert-floating');
+        setTimeout(() => alert.classList.remove('alert-floating'), 4000);
+    });
+})();
+
 function toggleImportForm() {
     const form = document.getElementById('importForm');
     const isHidden = form.style.display === 'none';

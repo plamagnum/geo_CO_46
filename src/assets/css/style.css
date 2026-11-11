@@ -1266,3 +1266,35 @@ img { max-width: 100%; display: block; }
 .pending-assignments h2 { margin-top: 0; }
 .pending-assignments .result-item { gap: 12px; }
 .text-danger { color: #c53030; }
+
+/* Масове видалення запитань */
+.bulk-bar {
+    position: sticky;
+    top: 64px;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm, 8px);
+    background: var(--bg-card, #fff);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.bulk-select-all { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.bulk-count { margin-right: auto; }
+.question-select { width: 18px; height: 18px; margin-right: 6px; vertical-align: middle; cursor: pointer; }
+.question-admin-card.selected { outline: 2px solid var(--danger, #e53e3e); }
+.alert-floating {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    z-index: 1000;
+    transform: translateX(-50%);
+    max-width: 90vw;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+@media (max-width: 767px) {
+    .bulk-bar { top: 0; }
+}
