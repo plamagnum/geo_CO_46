@@ -53,6 +53,86 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error = 'Відповідь не знайдено.';
             }
+        } elseif ($action === 'bulk_move' || $action === 'bulk_class') {
+            $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['question_ids'] ?? [])))));
+            $in  = implode(',', array_fill(0, count($ids), '?'));
+
+            // Знайти тему за (предмет, клас, назва) або створити нову
+            $findOrCreateTopic = static function (int $subjectId, int $classId, string $name) use ($pdo): int {
+                $stmt = $pdo->prepare('SELECT id FROM topics WHERE subject_id = ? AND class_id = ? AND name = ? LIMIT 1');
+                $stmt->execute([$subjectId, $classId, $name]);
+                $id = (int)$stmt->fetchColumn();
+                if ($id === 0) {
+                    $stmt = $pdo->prepare('INSERT INTO topics (subject_id, class_id, name) VALUES (?, ?, ?)');
+                    $stmt->execute([$subjectId, $classId, $name]);
+                    $id = (int)$pdo->lastInsertId();
+                }
+                return $id;
+            };
+
+            if (empty($ids)) {
+                $error = 'Не вибрано жодного запитання.';
+            } elseif ($action === 'bulk_move') {
+                $target = $_POST['target_topic_id'] ?? '';
+                $targetTopicId = 0;
+
+                if ($target === 'new') {
+                    $newClassId   = (int)($_POST['new_class_id'] ?? 0);
+                    $newSubjectId = (int)($_POST['new_subject_id'] ?? 0);
+                    $newName      = trim($_POST['new_topic_name'] ?? '');
+                    if ($newClassId <= 0 || $newSubjectId <= 0 || $newName === '') {
+                        $error = 'Для нової теми вкажіть клас, предмет і назву.';
+                    } else {
+                        $targetTopicId = $findOrCreateTopic($newSubjectId, $newClassId, $newName);
+                    }
+                } else {
+                    $stmt = $pdo->prepare('SELECT id FROM topics WHERE id = ?');
+                    $stmt->execute([(int)$target]);
+                    $targetTopicId = (int)$stmt->fetchColumn();
+                    if ($targetTopicId === 0) {
+                        $error = 'Оберіть тему, у яку перенести запитання.';
+                    }
+                }
+
+                if ($targetTopicId > 0) {
+                    $stmt = $pdo->prepare("UPDATE questions SET topic_id = ? WHERE id IN ($in)");
+                    $stmt->execute(array_merge([$targetTopicId], $ids));
+                    $message = 'Перенесено запитань: ' . $stmt->rowCount() . '.';
+                }
+            } else {
+                $targetClassId = (int)($_POST['target_class_id'] ?? 0);
+                $stmt = $pdo->prepare('SELECT id FROM classes WHERE id = ?');
+                $stmt->execute([$targetClassId]);
+
+                if (!$stmt->fetchColumn()) {
+                    $error = 'Оберіть клас.';
+                } else {
+                    // Для кожної вихідної теми — тема з тією ж назвою та предметом у новому класі
+                    $stmt = $pdo->prepare("
+                        SELECT DISTINCT t.id, t.subject_id, t.name FROM questions q
+                        JOIN topics t ON q.topic_id = t.id
+                        WHERE q.id IN ($in) AND t.class_id <> ?
+                    ");
+                    $stmt->execute(array_merge($ids, [$targetClassId]));
+                    $moved = 0;
+
+                    $pdo->beginTransaction();
+                    try {
+                        foreach ($stmt->fetchAll() as $src) {
+                            $dstId = $findOrCreateTopic((int)$src['subject_id'], $targetClassId, $src['name']);
+                            $upd = $pdo->prepare("UPDATE questions SET topic_id = ? WHERE topic_id = ? AND id IN ($in)");
+                            $upd->execute(array_merge([$dstId, (int)$src['id']], $ids));
+                            $moved += $upd->rowCount();
+                        }
+                        $pdo->commit();
+                        $message = 'Клас змінено для запитань: ' . $moved . '.';
+                    } catch (Throwable $ex) {
+                        $pdo->rollBack();
+                        error_log('Помилка зміни класу: ' . $ex->getMessage());
+                        $error = 'Не вдалося змінити клас.';
+                    }
+                }
+            }
         } elseif ($action === 'bulk_delete') {
             $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['question_ids'] ?? [])))));
             if (empty($ids)) {
@@ -118,6 +198,15 @@ $topics   = $pdo->query('
     JOIN classes c ON t.class_id = c.id
     ORDER BY s.name, c.id, t.name
 ')->fetchAll();
+
+$classes  = $pdo->query('SELECT * FROM classes ORDER BY id')->fetchAll();
+$subjects = $pdo->query('SELECT * FROM subjects ORDER BY name')->fetchAll();
+
+// Теми, згруповані за класом (для списку перенесення)
+$topicsByClass = [];
+foreach ($topics as $topic) {
+    $topicsByClass[$topic['class_name']][] = $topic;
+}
 
 $pageTitle = 'Управління запитаннями';
 require_once __DIR__ . '/../includes/header.php';
@@ -224,15 +313,58 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- Масові дії -->
 <?php if (!empty($questions)): ?>
-    <form method="POST" action="" id="bulkForm" class="bulk-bar"
-          onsubmit="return confirm('Видалити вибрані запитання (' + selectedCount() + ')?')">
+    <form method="POST" action="" id="bulkForm" class="bulk-bar" onsubmit="return confirmBulk(event)">
         <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
-        <input type="hidden" name="action" value="bulk_delete">
-        <label class="bulk-select-all">
-            <input type="checkbox" id="selectAll"> Вибрати всі на сторінці
-        </label>
-        <span class="bulk-count">Вибрано: <b id="selectedCount">0</b></span>
-        <button type="submit" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>🗑 Видалити вибрані</button>
+        <div class="bulk-row">
+            <label class="bulk-select-all">
+                <input type="checkbox" id="selectAll"> Вибрати всі на сторінці
+            </label>
+            <span class="bulk-count">Вибрано: <b id="selectedCount">0</b></span>
+            <button type="submit" name="action" value="bulk_delete" class="btn btn-danger btn-sm bulk-btn" disabled>🗑 Видалити вибрані</button>
+        </div>
+
+        <div class="bulk-row bulk-edit" id="bulkEdit" hidden>
+            <div class="bulk-group">
+                <label for="targetTopic">Перенести в тему:</label>
+                <select name="target_topic_id" id="targetTopic" class="form-select">
+                    <option value="">— оберіть тему —</option>
+                    <option value="new">➕ Нова тема…</option>
+                    <?php foreach ($topicsByClass as $className => $classTopics): ?>
+                        <optgroup label="<?= e($className) ?>">
+                            <?php foreach ($classTopics as $topic): ?>
+                                <option value="<?= (int)$topic['id'] ?>"><?= e($topic['subject_name'] . ' · ' . $topic['name']) ?></option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    <?php endforeach; ?>
+                </select>
+                <span id="newTopicFields" class="bulk-group" hidden>
+                    <select name="new_class_id" class="form-select" aria-label="Клас нової теми">
+                        <?php foreach ($classes as $class): ?>
+                            <option value="<?= (int)$class['id'] ?>"><?= e($class['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select name="new_subject_id" class="form-select" aria-label="Предмет нової теми">
+                        <?php foreach ($subjects as $subject): ?>
+                            <option value="<?= (int)$subject['id'] ?>"><?= e($subject['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <input type="text" name="new_topic_name" class="form-input" placeholder="Назва теми" maxlength="200">
+                </span>
+                <button type="submit" name="action" value="bulk_move" class="btn btn-primary btn-sm bulk-btn" disabled>Перенести</button>
+            </div>
+
+            <div class="bulk-group">
+                <label for="targetClass">Змінити клас:</label>
+                <select name="target_class_id" id="targetClass" class="form-select">
+                    <option value="">— оберіть клас —</option>
+                    <?php foreach ($classes as $class): ?>
+                        <option value="<?= (int)$class['id'] ?>"><?= e($class['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" name="action" value="bulk_class" class="btn btn-primary btn-sm bulk-btn" disabled
+                        title="Тема з тією ж назвою та предметом буде знайдена або створена в обраному класі">Змінити</button>
+            </div>
+        </div>
     </form>
 <?php endif; ?>
 
@@ -296,16 +428,45 @@ function selectedCount() {
 function updateBulkBar() {
     const count = selectedCount();
     const counter = document.getElementById('selectedCount');
-    const button  = document.getElementById('bulkDeleteBtn');
     if (!counter) return;
     counter.textContent = count;
-    button.disabled = count === 0;
+    document.querySelectorAll('.bulk-btn').forEach(btn => { btn.disabled = count === 0; });
+    document.getElementById('bulkEdit').hidden = count === 0;
     selectAllBox.checked = count > 0 && count === questionBoxes.length;
     selectAllBox.indeterminate = count > 0 && count < questionBoxes.length;
     questionBoxes.forEach(box => box.closest('.question-admin-card').classList.toggle('selected', box.checked));
 }
 
 questionBoxes.forEach(box => box.addEventListener('change', updateBulkBar));
+
+document.getElementById('targetTopic')?.addEventListener('change', (e) => {
+    document.getElementById('newTopicFields').hidden = e.target.value !== 'new';
+});
+
+function confirmBulk(event) {
+    const form   = event.target;
+    const action = event.submitter ? event.submitter.value : '';
+    const count  = selectedCount();
+
+    if (action === 'bulk_delete') {
+        return confirm('Видалити вибрані запитання (' + count + ')?');
+    }
+    if (action === 'bulk_move') {
+        const sel = form.target_topic_id;
+        if (!sel.value) { alert('Оберіть тему.'); sel.focus(); return false; }
+        if (sel.value === 'new' && !form.new_topic_name.value.trim()) {
+            alert('Вкажіть назву нової теми.'); form.new_topic_name.focus(); return false;
+        }
+        const name = sel.value === 'new' ? form.new_topic_name.value.trim() : sel.options[sel.selectedIndex].text;
+        return confirm('Перенести ' + count + ' запит. у тему «' + name + '»?');
+    }
+    if (action === 'bulk_class') {
+        const sel = form.target_class_id;
+        if (!sel.value) { alert('Оберіть клас.'); sel.focus(); return false; }
+        return confirm('Змінити клас для ' + count + ' запит. на «' + sel.options[sel.selectedIndex].text + '»?');
+    }
+    return true;
+}
 selectAllBox?.addEventListener('change', () => {
     questionBoxes.forEach(box => { box.checked = selectAllBox.checked; });
     updateBulkBar();
@@ -314,7 +475,9 @@ selectAllBox?.addEventListener('change', () => {
 // Збереження позиції прокрутки після відправки форм на цій сторінці
 const SCROLL_KEY = 'questionsScroll:' + location.pathname + location.search;
 document.querySelectorAll('form[method="POST"]').forEach(form => {
-    form.addEventListener('submit', () => sessionStorage.setItem(SCROLL_KEY, String(window.scrollY)));
+    form.addEventListener('submit', (e) => {
+        if (!e.defaultPrevented) sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    });
 });
 (function restoreScroll() {
     const saved = sessionStorage.getItem(SCROLL_KEY);
