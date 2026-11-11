@@ -16,7 +16,8 @@ ensureAssignmentTables($pdo);
 $stmt = $pdo->prepare('
     SELECT a.id, a.type, a.topic_id, a.created_at,
            t.name AS topic_name, s.name AS subject_name, c.name AS class_name,
-           tr.score_percent, tr.correct_answers, tr.total_questions, tr.completed_at
+           tr.score_percent, tr.correct_answers, tr.total_questions, tr.completed_at,
+           (SELECT COUNT(*) FROM questions q WHERE q.topic_id = a.topic_id AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)) AS ready_questions
     FROM assignment_recipients ar
     JOIN assignments a ON ar.assignment_id = a.id
     JOIN topics t ON a.topic_id = t.id
@@ -37,6 +38,10 @@ require_once __DIR__ . '/../includes/header.php';
     <h1 class="page-title">Мої завдання</h1>
     <p class="page-subtitle">Завдання, надіслані вчителем</p>
 </div>
+
+<?php if ($errorMessage = testErrorMessage($_GET['error'] ?? null)): ?>
+    <div class="alert alert-error"><?= e($errorMessage) ?></div>
+<?php endif; ?>
 
 <?php if (empty($assignments)): ?>
     <div class="empty-state">
@@ -75,8 +80,12 @@ require_once __DIR__ . '/../includes/header.php';
                         <?php else: ?>
                             <td>Не виконано</td>
                             <td>
+                                <?php if ((int)$a['ready_questions'] === 0): ?>
+                                    <span class="text-muted" title="<?= e(testErrorMessage('no_questions')) ?>">Тест ще не готовий</span>
+                                <?php else: ?>
                                 <a href="/tests/take.php?topic_id=<?= (int)$a['topic_id'] ?>&amp;assignment_id=<?= (int)$a['id'] ?>"
                                    class="btn btn-primary btn-sm">Виконати</a>
+                                <?php endif; ?>
                             </td>
                         <?php endif; ?>
                     </tr>

@@ -63,6 +63,10 @@ require_once __DIR__ . '/../includes/header.php';
     <p class="page-subtitle">Оберіть тему для тестування</p>
 </div>
 
+<?php if ($errorMessage = testErrorMessage($_GET['error'] ?? null)): ?>
+    <div class="alert alert-error"><?= e($errorMessage) ?></div>
+<?php endif; ?>
+
 <?php require __DIR__ . '/../includes/pending_assignments.php'; ?>
 
 <!-- Фільтри -->

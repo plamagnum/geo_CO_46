@@ -54,7 +54,8 @@ function getPendingAssignments(PDO $pdo, int $userId): array {
     ensureAssignmentTables($pdo);
     $stmt = $pdo->prepare('
         SELECT a.id, a.type, a.topic_id, a.created_at,
-               t.name AS topic_name, s.name AS subject_name
+               t.name AS topic_name, s.name AS subject_name,
+               (SELECT COUNT(*) FROM questions q WHERE q.topic_id = a.topic_id AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)) AS ready_questions
         FROM assignment_recipients ar
         JOIN assignments a ON ar.assignment_id = a.id
         JOIN topics t ON a.topic_id = t.id
@@ -64,4 +65,14 @@ function getPendingAssignments(PDO $pdo, int $userId): array {
     ');
     $stmt->execute([$userId]);
     return $stmt->fetchAll();
+}
+
+/**
+ * Текст помилки для ?error=... на сторінках учня
+ */
+function testErrorMessage(?string $code): string {
+    return match ($code) {
+        'no_questions' => 'Цей тест ще не готовий: у темі немає запитань з позначеною правильною відповіддю. Повідомте вчителя.',
+        default        => '',
+    };
 }

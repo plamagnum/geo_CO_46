@@ -60,7 +60,7 @@ $stmt->execute([$topicId]);
 $questions = $stmt->fetchAll();
 
 if (empty($questions)) {
-    header('Location: /tests/index.php?error=no_questions');
+    header('Location: ' . ($assignment ? '/tests/assignments.php' : '/tests/index.php') . '?error=no_questions');
     exit;
 }
 

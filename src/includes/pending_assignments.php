@@ -15,8 +15,12 @@ if (!empty($pendingAssignments)): ?>
                             <?= e($pa['subject_name']) ?> · <?= date('d.m.Y H:i', strtotime($pa['created_at'])) ?>
                         </small>
                     </div>
+                    <?php if ((int)$pa['ready_questions'] === 0): ?>
+                        <span class="text-muted" title="<?= e(testErrorMessage('no_questions')) ?>">Тест ще не готовий</span>
+                    <?php else: ?>
                     <a href="/tests/take.php?topic_id=<?= (int)$pa['topic_id'] ?>&amp;assignment_id=<?= (int)$pa['id'] ?>"
                        class="btn btn-primary btn-sm">Виконати</a>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>

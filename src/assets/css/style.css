@@ -1265,3 +1265,4 @@ img { max-width: 100%; display: block; }
 }
 .pending-assignments h2 { margin-top: 0; }
 .pending-assignments .result-item { gap: 12px; }
+.text-danger { color: #c53030; }

@@ -28,8 +28,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $classId = (int)($_POST['class_id'] ?? 0);
             $userIds = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['user_ids'] ?? [])))));
 
+            $readyStmt = $pdo->prepare('
+                SELECT COUNT(*) FROM questions q WHERE q.topic_id = ?
+                  AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)
+            ');
+            $readyStmt->execute([$topicId]);
+
             if ($topicId <= 0 || !isset(ASSIGNMENT_TYPES[$type])) {
                 $error = 'Оберіть тему та тип завдання.';
+            } elseif ((int)$readyStmt->fetchColumn() === 0) {
+                $error = 'У цій темі немає запитань з позначеною правильною відповіддю. Позначте їх у розділі «Запитання».';
             } else {
                 $recipients = [];
                 if ($target === 'class' && $classId > 0) {
@@ -75,7 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $classes = $pdo->query('SELECT * FROM classes ORDER BY id')->fetchAll();
 $topics  = $pdo->query('
-    SELECT t.id, t.name, s.name AS subject_name, c.name AS class_name
+    SELECT t.id, t.name, s.name AS subject_name, c.name AS class_name,
+           (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id
+              AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)) AS ready_questions
     FROM topics t
     JOIN subjects s ON t.subject_id = s.id
     JOIN classes c ON t.class_id = c.id
@@ -90,6 +100,8 @@ $students = $pdo->query('
 
 $assignments = $pdo->query('
     SELECT a.*, t.name AS topic_name, s.name AS subject_name,
+           (SELECT COUNT(*) FROM questions q WHERE q.topic_id = a.topic_id
+              AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)) AS ready_questions,
            COUNT(ar.id) AS recipients_count,
            SUM(ar.result_id IS NOT NULL) AS done_count
     FROM assignments a
@@ -133,7 +145,10 @@ require_once __DIR__ . '/../includes/header.php';
             <select name="topic_id" id="topic_id" class="form-select" required>
                 <option value="">— оберіть —</option>
                 <?php foreach ($topics as $t): ?>
-                    <option value="<?= (int)$t['id'] ?>"><?= e($t['class_name'] . ' · ' . $t['subject_name'] . ' · ' . $t['name']) ?></option>
+                    <option value="<?= (int)$t['id'] ?>" <?= (int)$t['ready_questions'] === 0 ? 'disabled' : '' ?>>
+                        <?= e($t['class_name'] . ' · ' . $t['subject_name'] . ' · ' . $t['name']) ?>
+                        (<?= (int)$t['ready_questions'] > 0 ? (int)$t['ready_questions'] . ' запит.' : 'немає правильних відповідей' ?>)
+                    </option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -184,7 +199,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <tr>
                         <td><span class="badge badge-info"><?= e(assignmentTypeLabel($a['type'])) ?></span></td>
                         <td><?= e($a['subject_name']) ?></td>
-                        <td><?= e($a['topic_name']) ?></td>
+                        <td>
+                            <?= e($a['topic_name']) ?>
+                            <?php if ((int)$a['ready_questions'] === 0): ?>
+                                <br><small class="text-danger">⚠ немає запитань з правильною відповіддю — учні не зможуть виконати</small>
+                            <?php endif; ?>
+                        </td>
                         <td><?= (int)$a['done_count'] ?> / <?= (int)$a['recipients_count'] ?></td>
                         <td><?= date('d.m.Y H:i', strtotime($a['created_at'])) ?></td>
                         <td>
