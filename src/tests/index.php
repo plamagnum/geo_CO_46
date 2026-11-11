@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/assignments.php';
 
 requireLogin();
 
@@ -51,6 +52,8 @@ $stmt = $pdo->prepare($topicsQuery);
 $stmt->execute($params);
 $topics = $stmt->fetchAll();
 
+$pendingAssignments = isAdmin() ? [] : getPendingAssignments($pdo, (int)$_SESSION['user_id']);
+
 $pageTitle = 'Тести';
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -59,6 +62,8 @@ require_once __DIR__ . '/../includes/header.php';
     <h1 class="page-title">Доступні тести</h1>
     <p class="page-subtitle">Оберіть тему для тестування</p>
 </div>
+
+<?php require __DIR__ . '/../includes/pending_assignments.php'; ?>
 
 <!-- Фільтри -->
 <div class="filters">

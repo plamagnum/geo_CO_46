@@ -46,3 +46,22 @@ function ensureAssignmentTables(PDO $pdo): void {
     ");
     $done = true;
 }
+
+/**
+ * Невиконані завдання учня (найновіші першими)
+ */
+function getPendingAssignments(PDO $pdo, int $userId): array {
+    ensureAssignmentTables($pdo);
+    $stmt = $pdo->prepare('
+        SELECT a.id, a.type, a.topic_id, a.created_at,
+               t.name AS topic_name, s.name AS subject_name
+        FROM assignment_recipients ar
+        JOIN assignments a ON ar.assignment_id = a.id
+        JOIN topics t ON a.topic_id = t.id
+        JOIN subjects s ON t.subject_id = s.id
+        WHERE ar.user_id = ? AND ar.result_id IS NULL
+        ORDER BY a.created_at DESC
+    ');
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll();
+}

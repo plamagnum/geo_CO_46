@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/assignments.php';
 
 startSession();
 
@@ -45,6 +46,8 @@ if ($isLogged) {
         ');
         $lastResultStmt->execute([$userId]);
         $stats['last_results'] = $lastResultStmt->fetchAll();
+
+        $pendingAssignments = getPendingAssignments($pdo, (int)$userId);
     }
 }
 
@@ -140,6 +143,10 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="action-icon">📋</span>
                     <span>Управління темами</span>
                 </a>
+                <a href="/admin/assignments.php" class="action-card">
+                    <span class="action-icon">📨</span>
+                    <span>Надіслати завдання</span>
+                </a>
                 <a href="/admin/results.php" class="action-card">
                     <span class="action-icon">📊</span>
                     <span>Результати учнів</span>
@@ -156,6 +163,8 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Кабінет учня -->
     <div class="dashboard">
         <h1 class="page-title">Вітаємо, <?= e($_SESSION['full_name'] ?? '') ?>!</h1>
+
+        <?php require __DIR__ . '/includes/pending_assignments.php'; ?>
 
         <div class="stats-grid">
             <div class="stat-card">
@@ -176,6 +185,10 @@ require_once __DIR__ . '/includes/header.php';
                 <a href="/tests/index.php" class="action-card action-primary">
                     <span class="action-icon">📝</span>
                     <span>Почати тест</span>
+                </a>
+                <a href="/tests/assignments.php" class="action-card">
+                    <span class="action-icon">📨</span>
+                    <span>Мої завдання</span>
                 </a>
                 <a href="/tests/results.php" class="action-card">
                     <span class="action-icon">📊</span>

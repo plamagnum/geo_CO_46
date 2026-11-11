@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/assignments.php';
 
 startSession();
 $currentUser = getCurrentUser();
@@ -13,6 +14,15 @@ $isAdminUser = isAdmin();
 // Визначення поточної сторінки для навігації
 $currentPage = basename($_SERVER['PHP_SELF']);
 $currentDir = basename(dirname($_SERVER['PHP_SELF']));
+
+$pendingCount = 0;
+if ($isLogged && !$isAdminUser) {
+    try {
+        $pendingCount = count(getPendingAssignments(getDB(), (int)$_SESSION['user_id']));
+    } catch (Throwable $ex) {
+        error_log('Помилка завантаження завдань: ' . $ex->getMessage());
+    }
+}
 
 $csrfToken = generateCsrfToken();
 ?>
@@ -46,7 +56,7 @@ $csrfToken = generateCsrfToken();
                         <?php if ($isAdminUser): ?>
                             <a href="/admin/index.php" class="nav-link <?= $currentDir === 'admin' ? 'active' : '' ?>">Панель адміна</a>
                         <?php else: ?>
-                            <a href="/tests/assignments.php" class="nav-link <?= $currentPage === 'assignments.php' ? 'active' : '' ?>">Мої завдання</a>
+                            <a href="/tests/assignments.php" class="nav-link <?= $currentPage === 'assignments.php' ? 'active' : '' ?>">Мої завдання<?php if ($pendingCount > 0): ?> <span class="nav-count"><?= $pendingCount ?></span><?php endif; ?></a>
                             <a href="/tests/results.php" class="nav-link <?= $currentPage === 'results.php' ? 'active' : '' ?>">Мої результати</a>
                             <a href="/notes.php" class="nav-link <?= $currentPage === 'notes.php' ? 'active' : '' ?>">Нотатки</a>
                         <?php endif; ?>
@@ -61,6 +71,7 @@ $csrfToken = generateCsrfToken();
                     <?php if ($isLogged): ?>
                         <div class="user-menu">
                             <button class="user-btn" id="userBtn">
+                                <?php if ($pendingCount > 0): ?><span class="nav-count avatar-count" title="Нові завдання"><?= $pendingCount ?></span><?php endif; ?>
                                 <span class="user-avatar"><?= e(mb_substr($currentUser['first_name'] ?? 'U', 0, 1)) ?></span>
                                 <span class="user-name"><?= e($currentUser['first_name'] ?? '') ?></span>
                                 <span class="chevron">▾</span>
