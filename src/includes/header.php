@@ -46,6 +46,7 @@ $csrfToken = generateCsrfToken();
                         <?php if ($isAdminUser): ?>
                             <a href="/admin/index.php" class="nav-link <?= $currentDir === 'admin' ? 'active' : '' ?>">Панель адміна</a>
                         <?php else: ?>
+                            <a href="/tests/assignments.php" class="nav-link <?= $currentPage === 'assignments.php' ? 'active' : '' ?>">Мої завдання</a>
                             <a href="/tests/results.php" class="nav-link <?= $currentPage === 'results.php' ? 'active' : '' ?>">Мої результати</a>
                             <a href="/notes.php" class="nav-link <?= $currentPage === 'notes.php' ? 'active' : '' ?>">Нотатки</a>
                         <?php endif; ?>

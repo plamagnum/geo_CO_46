@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/assignments.php';
 
 requireLogin();
 
@@ -31,6 +32,20 @@ $topic = $stmt->fetch();
 if (!$topic) {
     header('Location: /tests/index.php');
     exit;
+}
+
+// Призначене завдання (необов'язково)
+$assignmentId = (int)($_GET['assignment_id'] ?? $_POST['assignment_id'] ?? 0);
+$assignment = null;
+if ($assignmentId > 0) {
+    ensureAssignmentTables($pdo);
+    $stmt = $pdo->prepare('
+        SELECT a.*, ar.result_id FROM assignments a
+        JOIN assignment_recipients ar ON ar.assignment_id = a.id
+        WHERE a.id = ? AND ar.user_id = ? AND a.topic_id = ?
+    ');
+    $stmt->execute([$assignmentId, $userId, $topicId]);
+    $assignment = $stmt->fetch() ?: null;
 }
 
 // Завантаження запитань з відповідями
@@ -122,6 +137,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$userId, $topicId, $totalCount, $correctCount, $scorePercent]);
         $resultId = $pdo->lastInsertId();
 
+        if ($assignment && empty($assignment['result_id'])) {
+            $stmt = $pdo->prepare('
+                UPDATE assignment_recipients SET result_id = ?
+                WHERE assignment_id = ? AND user_id = ? AND result_id IS NULL
+            ');
+            $stmt->execute([$resultId, $assignmentId, $userId]);
+        }
+
         $sendJson([
             'success'        => true,
             'correct'        => $correctCount,
@@ -150,6 +173,9 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="test-meta">
             <span class="badge"><?= e($topic['class_name']) ?></span>
             <span class="badge badge-secondary"><?= e($topic['subject_name']) ?></span>
+            <?php if ($assignment): ?>
+                <span class="badge badge-info"><?= e(assignmentTypeLabel($assignment['type'])) ?></span>
+            <?php endif; ?>
         </div>
         <h1 class="test-title"><?= e($topic['name']) ?></h1>
         <div class="test-progress">
@@ -165,6 +191,9 @@ require_once __DIR__ . '/../includes/header.php';
     <form id="testForm" method="POST" action="">
         <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
         <input type="hidden" name="action" value="submit_test">
+        <?php if ($assignment): ?>
+            <input type="hidden" name="assignment_id" value="<?= (int)$assignmentId ?>">
+        <?php endif; ?>
 
         <div class="questions-container">
             <?php foreach ($questions as $index => $question): ?>
