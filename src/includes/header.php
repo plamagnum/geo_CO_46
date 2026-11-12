@@ -35,7 +35,7 @@ $csrfToken = generateCsrfToken();
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 </head>
-<body>
+<body<?= ($isLogged && !$isAdminUser) ? ' class="no-copy"' : '' ?>>
     <header class="header">
         <div class="container">
             <div class="header-inner">

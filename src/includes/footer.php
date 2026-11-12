@@ -17,5 +17,16 @@
     </footer>
 
     <script src="/assets/js/app.js"></script>
+    <script>
+    if (document.body.classList.contains('no-copy')) {
+        const editable = (el) => el && el.closest && el.closest('input, textarea, [contenteditable="true"]');
+        ['copy', 'cut', 'contextmenu', 'selectstart', 'dragstart'].forEach((type) =>
+            document.addEventListener(type, (e) => { if (!editable(e.target)) e.preventDefault(); }));
+        document.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'a', 's', 'p', 'u'].includes(k) && !editable(e.target)) e.preventDefault();
+        });
+    }
+    </script>
 </body>
 </html>
