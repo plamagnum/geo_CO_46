@@ -6,10 +6,12 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/assignments.php';
+require_once __DIR__ . '/../includes/images.php';
 
 requireLogin();
 
 $pdo = getDB();
+ensureImageColumns($pdo);
 $topicId = (int)($_GET['topic_id'] ?? 0);
 $userId  = (int)$_SESSION['user_id'];
 
@@ -204,6 +206,7 @@ require_once __DIR__ . '/../includes/header.php';
 
                     <div class="question-number">Запитання <?= $index + 1 ?></div>
                     <h2 class="question-text"><?= e($question['text']) ?></h2>
+                    <?= imageTag($question['image'] ?? null) ?>
 
                     <div class="answers-list">
                         <?php foreach ($question['answers'] as $answer): ?>
@@ -216,7 +219,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     data-correct="<?= $answer['is_correct'] ? '1' : '0' ?>"
                                     class="answer-radio"
                                 >
-                                <span class="answer-text"><?= e($answer['text']) ?></span>
+                                <span class="answer-text"><?= e($answer['text']) ?><?= imageTag($answer['image'] ?? null, 'a-image') ?></span>
                                 <span class="answer-icon"></span>
                             </label>
                         <?php endforeach; ?>
@@ -264,10 +267,12 @@ window.questionsData = <?= json_encode(array_map(function($q) {
     return [
         'id'      => (int)$q['id'],
         'text'    => $q['text'],
+        'image'   => imageUrl($q['image'] ?? null),
         'answers' => array_map(function($a) {
             return [
                 'id'         => (int)$a['id'],
                 'text'       => $a['text'],
+                'image'      => imageUrl($a['image'] ?? null),
                 'is_correct' => (bool)$a['is_correct'],
             ];
         }, $q['answers']),

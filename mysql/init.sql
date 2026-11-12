@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS `questions` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `topic_id` INT NOT NULL,
     `text` TEXT NOT NULL,
+    `image` VARCHAR(255) NULL DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`topic_id`) REFERENCES `topics`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -59,6 +60,7 @@ CREATE TABLE IF NOT EXISTS `answers` (
     `question_id` INT NOT NULL,
     `text` TEXT NOT NULL,
     `is_correct` TINYINT(1) DEFAULT 0,
+    `image` VARCHAR(255) NULL DEFAULT NULL,
     FOREIGN KEY (`question_id`) REFERENCES `questions`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

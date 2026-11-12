@@ -310,6 +310,20 @@ php parsers/parser.php
 
 Результат: `parsers/output/parsed_questions.json`
 
+#### Картинки
+
+Якщо `DOWNLOAD_IMAGES = True` (у `config.py`), парсер скачує картинки запитань
+(`SELECTORS["question_image"]`) і відповідей (`SELECTORS["answer_image"]`) та вбудовує їх
+у JSON як `data:image/...;base64,...` (поле `image`). Копії зберігаються в `parsers/output/images/`.
+Під час імпорту сервер зберігає картинки в `src/uploads/questions/` — папка має бути доступна для запису:
+
+```bash
+chmod -R 777 src/uploads
+docker compose restart nginx   # після оновлення nginx/default.conf
+```
+
+В адмінці JSON можна вставити в поле або вибрати файл `parsed_questions.json`.
+
 ---
 
 ### Python парсер

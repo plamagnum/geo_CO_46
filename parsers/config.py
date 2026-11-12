@@ -23,6 +23,12 @@ SELECTORS = {
     # Один варіант відповіді
     "answer_item": "li",
 
+    # Картинка запитання (шукається в контейнері запитання, поза списком відповідей)
+    "question_image": "img",
+
+    # Картинка у варіанті відповіді
+    "answer_image": "img",
+
     # Що позначає правильну відповідь
     # Тип: "class" (клас елемента) або "attribute" (атрибут елемента)
     "correct_marker": {
@@ -34,6 +40,13 @@ SELECTORS = {
 # Директорія та файл для збереження результату
 OUTPUT_DIR  = "output"
 OUTPUT_FILE = "parsed_questions.json"
+
+# Завантаження картинок
+# True — картинки скачуються і вбудовуються в JSON (base64),
+# а копії зберігаються у output/images/ для перегляду
+DOWNLOAD_IMAGES = True
+IMAGES_DIR      = "images"
+IMAGE_MAX_BYTES = 5 * 1024 * 1024  # більші картинки пропускаються
 
 # Затримка між запитами (секунди)
 REQUEST_DELAY = 1.0

@@ -5,10 +5,12 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/images.php';
 
 requireAdmin();
 
 $pdo       = getDB();
+ensureImageColumns($pdo);
 $csrfToken = generateCsrfToken();
 $message   = '';
 $error     = '';
@@ -26,11 +28,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $answers      = $_POST['answers'] ?? [];
             $correctAnswer = (int)($_POST['correct_answer'] ?? 0);
 
-            if (empty($questionText) || $topicId <= 0 || count($answers) < 2) {
+            $questionImage = null;
+            try {
+                $questionImage = saveUploadedImage($_FILES['question_image'] ?? null);
+            } catch (RuntimeException $e) {
+                $error = $e->getMessage();
+            }
+
+            if ($error !== '') {
+                // помилка картинки вже записана
+            } elseif ((empty($questionText) && $questionImage === null) || $topicId <= 0 || count($answers) < 2) {
                 $error = 'Заповніть всі поля. Потрібно мінімум 2 варіанти відповідей.';
             } else {
-                $stmt = $pdo->prepare('INSERT INTO questions (topic_id, text) VALUES (?, ?)');
-                $stmt->execute([$topicId, $questionText]);
+                $stmt = $pdo->prepare('INSERT INTO questions (topic_id, text, image) VALUES (?, ?, ?)');
+                $stmt->execute([$topicId, $questionText, $questionImage]);
                 $newQuestionId = (int)$pdo->lastInsertId();
 
                 foreach ($answers as $index => $answerText) {
@@ -42,6 +53,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $message = 'Запитання додано успішно.';
             }
+        } elseif ($action === 'remove_image' && $questionId > 0) {
+            $stmt = $pdo->prepare('UPDATE questions SET image = NULL WHERE id = ?');
+            $stmt->execute([$questionId]);
+            $message = 'Картинку прибрано із запитання.';
         } elseif ($action === 'set_correct' && $questionId > 0) {
             $answerId = (int)($_POST['answer_id'] ?? 0);
             $stmt = $pdo->prepare('SELECT id FROM answers WHERE id = ? AND question_id = ?');
@@ -231,6 +246,10 @@ require_once __DIR__ . '/../includes/header.php';
         <label class="form-label">JSON дані</label>
         <textarea id="jsonImportData" class="form-textarea" rows="10" placeholder='{"topic_id": 1, "questions": [...]}'></textarea>
     </div>
+    <div class="form-group">
+        <label class="form-label">…або виберіть JSON-файл від парсера (зручно, якщо в ньому є картинки)</label>
+        <input type="file" id="jsonImportFile" class="form-input" accept=".json,application/json">
+    </div>
     <button type="button" class="btn btn-primary" onclick="importQuestions()">Імпортувати</button>
     <div id="importResult"></div>
 </div>
@@ -238,7 +257,7 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Форма додавання запитання -->
 <div class="admin-form-card">
     <h2>Додати запитання вручну</h2>
-    <form method="POST" action="" class="question-form" id="addQuestionForm">
+    <form method="POST" action="" class="question-form" id="addQuestionForm" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
         <input type="hidden" name="action" value="add">
 
@@ -257,6 +276,11 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="form-group">
             <label class="form-label">Текст запитання</label>
             <textarea name="question_text" class="form-textarea" rows="3" placeholder="Введіть текст запитання..." required maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Картинка (необов'язково)</label>
+            <input type="file" name="question_image" class="form-input" accept="image/jpeg,image/png,image/gif,image/webp">
         </div>
 
         <div class="answers-editor">
@@ -392,6 +416,17 @@ require_once __DIR__ . '/../includes/header.php';
                 </form>
             </div>
             <p class="question-admin-text"><?= e($question['text']) ?></p>
+            <?php if (imageUrl($question['image'] ?? null)): ?>
+                <div class="q-image-admin">
+                    <?= imageTag($question['image'], 'q-image') ?>
+                    <form method="POST" action="" onsubmit="return confirm('Прибрати картинку із запитання?')">
+                        <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                        <input type="hidden" name="action" value="remove_image">
+                        <input type="hidden" name="question_id" value="<?= (int)$question['id'] ?>">
+                        <button type="submit" class="btn btn-outline btn-sm">Прибрати картинку</button>
+                    </form>
+                </div>
+            <?php endif; ?>
             <form method="POST" action="" class="answers-preview">
                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                 <input type="hidden" name="action" value="set_correct">
@@ -401,7 +436,7 @@ require_once __DIR__ . '/../includes/header.php';
                             class="answer-preview <?= $answer['is_correct'] ? 'correct' : '' ?>"
                             style="cursor: pointer; border: none; font: inherit; text-align: left"
                             title="Позначити як правильну">
-                        <?= $answer['is_correct'] ? '✓' : '○' ?> <?= e($answer['text']) ?>
+                        <?= $answer['is_correct'] ? '✓' : '○' ?> <?= e($answer['text']) ?><?= imageTag($answer['image'] ?? null, 'a-image') ?>
                     </button>
                 <?php endforeach; ?>
             </form>
@@ -510,7 +545,10 @@ function escapeHtml(str) {
 }
 
 async function importQuestions() {
-    const jsonData = document.getElementById('jsonImportData').value.trim();
+    const fileInput = document.getElementById('jsonImportFile');
+    const jsonData = fileInput.files.length
+        ? (await fileInput.files[0].text()).trim()
+        : document.getElementById('jsonImportData').value.trim();
     const resultDiv = document.getElementById('importResult');
 
     if (!jsonData) {
@@ -533,6 +571,10 @@ async function importQuestions() {
             headers: { 'Content-Type': 'application/json' },
             body: jsonData,
         });
+        if (response.status === 413) {
+            resultDiv.innerHTML = '<div class="alert alert-error">Файл завеликий для сервера (збільште client_max_body_size у nginx).</div>';
+            return;
+        }
         const result = await response.json();
 
         const errorsHtml = (result.errors || []).length

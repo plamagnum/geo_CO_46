@@ -9,11 +9,12 @@
  *   "questions": [
  *     {
  *       "text": "Текст запитання?",
+ *       "image": "data:image/png;base64,...",   (необов'язково)
  *       "answers": [
  *         {"text": "Варіант 1", "is_correct": false},
  *         {"text": "Варіант 2", "is_correct": true},
  *         {"text": "Варіант 3", "is_correct": false},
- *         {"text": "Варіант 4", "is_correct": false}
+ *         {"text": "", "image": "data:image/jpeg;base64,...", "is_correct": false}
  *       ]
  *     }
  *   ]
@@ -22,6 +23,7 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/images.php';
 
 // Встановлення заголовків відповіді
 header('Content-Type: application/json; charset=utf-8');
@@ -76,6 +78,7 @@ if (empty($questions) || !is_array($questions)) {
 
 // Перевірка існування теми
 $pdo  = getDB();
+ensureImageColumns($pdo);
 $stmt = $pdo->prepare('SELECT id FROM topics WHERE id = ?');
 $stmt->execute([$topicId]);
 if (!$stmt->fetch()) {
@@ -92,45 +95,57 @@ $errors        = [];
 
 try {
     foreach ($questions as $index => $questionData) {
-        $questionText = trim($questionData['text'] ?? '');
-        $answers      = $questionData['answers'] ?? [];
+        $num          = $index + 1;
+        $questionText = trim((string)($questionData['text'] ?? ''));
+        $answers      = is_array($questionData['answers'] ?? null) ? $questionData['answers'] : [];
 
-        if (empty($questionText)) {
-            $errors[] = "Запитання #" . ($index + 1) . ": відсутній текст.";
-            continue;
-        }
-
-        if (count($answers) < 2) {
-            $errors[] = "Запитання #" . ($index + 1) . ": потрібно мінімум 2 варіанти відповідей.";
-            continue;
-        }
-
-        // Перевірка наявності правильної відповіді
-        $hasCorrect = false;
-        foreach ($answers as $answer) {
-            if (!empty($answer['is_correct'])) {
-                $hasCorrect = true;
-                break;
+        // Картинка запитання (необов'язково); помилка картинки не скасовує запитання
+        $questionImage = null;
+        if (!empty($questionData['image'])) {
+            try {
+                $questionImage = saveImageDataUri((string)$questionData['image']);
+            } catch (RuntimeException $e) {
+                $errors[] = "Запитання #{$num}: картинку не збережено — " . $e->getMessage();
             }
         }
 
-        if (!$hasCorrect) {
+        if ($questionText === '' && $questionImage === null) {
+            $errors[] = "Запитання #{$num}: відсутній текст.";
+            continue;
+        }
+
+        // Підготовка відповідей (текст або картинка)
+        $prepared = [];
+        foreach ($answers as $answerData) {
+            $answerText  = trim((string)($answerData['text'] ?? ''));
+            $answerImage = null;
+            if (!empty($answerData['image'])) {
+                try {
+                    $answerImage = saveImageDataUri((string)$answerData['image']);
+                } catch (RuntimeException $e) {
+                    $errors[] = "Запитання #{$num}: картинку відповіді не збережено — " . $e->getMessage();
+                }
+            }
+            if ($answerText === '' && $answerImage === null) continue;
+            $prepared[] = [$answerText, $answerImage, !empty($answerData['is_correct']) ? 1 : 0];
+        }
+
+        if (count($prepared) < 2) {
+            $errors[] = "Запитання #{$num}: потрібно мінімум 2 варіанти відповідей.";
+            continue;
+        }
+
+        if (!array_filter($prepared, fn($a) => $a[2] === 1)) {
             $withoutCorrect++;
         }
 
-        // Вставка запитання
-        $stmt = $pdo->prepare('INSERT INTO questions (topic_id, text) VALUES (?, ?)');
-        $stmt->execute([$topicId, $questionText]);
+        $stmt = $pdo->prepare('INSERT INTO questions (topic_id, text, image) VALUES (?, ?, ?)');
+        $stmt->execute([$topicId, $questionText, $questionImage]);
         $questionId = (int)$pdo->lastInsertId();
 
-        // Вставка відповідей
-        foreach ($answers as $answerData) {
-            $answerText = trim($answerData['text'] ?? '');
-            if (empty($answerText)) continue;
-
-            $isCorrect = !empty($answerData['is_correct']) ? 1 : 0;
-            $stmt = $pdo->prepare('INSERT INTO answers (question_id, text, is_correct) VALUES (?, ?, ?)');
-            $stmt->execute([$questionId, $answerText, $isCorrect]);
+        $stmt = $pdo->prepare('INSERT INTO answers (question_id, text, is_correct, image) VALUES (?, ?, ?, ?)');
+        foreach ($prepared as [$answerText, $answerImage, $isCorrect]) {
+            $stmt->execute([$questionId, $answerText, $isCorrect, $answerImage]);
         }
 
         $importedCount++;

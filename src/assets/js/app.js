@@ -331,6 +331,10 @@ const TestEngine = {
         return div.innerHTML;
     },
 
+    imageHtml(url, cls) {
+        return url ? `<img src="${this.escapeHtml(url)}" class="${cls}" alt="" draggable="false">` : '';
+    },
+
     showReview(results) {
         const reviewDiv = document.getElementById('answersReview');
         const reviewList = document.getElementById('reviewList');
@@ -355,11 +359,12 @@ const TestEngine = {
                 let style = '';
                 if (isCorrect) style = 'color: var(--success); font-weight: 600;';
                 else if (isSelected && !isCorrect) style = 'color: var(--danger);';
-                answersHtml += `<div style="${style}">${isCorrect ? '✓' : (isSelected ? '✗' : '○')} ${this.escapeHtml(answer.text)}</div>`;
+                answersHtml += `<div style="${style}">${isCorrect ? '✓' : (isSelected ? '✗' : '○')} ${this.escapeHtml(answer.text)}${this.imageHtml(answer.image, 'a-image')}</div>`;
             });
 
             item.innerHTML = `
                 <div class="review-question">${icon} ${this.escapeHtml(question.text)}</div>
+                ${this.imageHtml(question.image, 'q-image')}
                 <div class="review-answers">${answersHtml}</div>
             `;
             reviewList.appendChild(item);
