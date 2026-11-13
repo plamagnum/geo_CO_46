@@ -10,6 +10,12 @@ define('DB_USER', getenv('DB_USER') ?: 'school_user');
 define('DB_PASS', getenv('DB_PASS') ?: 'school_password');
 define('DB_CHARSET', 'utf8mb4');
 
+// Часовий пояс застосунку (змінна середовища APP_TIMEZONE, за замовчуванням Київ)
+define('APP_TIMEZONE', getenv('APP_TIMEZONE') ?: 'Europe/Kyiv');
+if (!@date_default_timezone_set(APP_TIMEZONE)) {
+    date_default_timezone_set('Europe/Kiev');
+}
+
 /**
  * Створення PDO підключення до БД
  *
@@ -28,6 +34,9 @@ function getDB(): PDO {
 
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            // TIMESTAMP-поля MySQL віддаються в часовому поясі сесії — узгоджуємо з PHP
+            // (зсув на кшталт +02:00 не потребує таблиць часових поясів MySQL)
+            $pdo->exec("SET time_zone = '" . date('P') . "'");
         } catch (PDOException $e) {
             // Логування помилки без виводу деталей користувачу
             error_log('Помилка підключення до БД: ' . $e->getMessage());

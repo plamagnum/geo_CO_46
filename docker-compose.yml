@@ -29,6 +29,8 @@ services:
       - DB_NAME=school_tests
       - DB_USER=school_user
       - DB_PASS=school_password
+      - APP_TIMEZONE=Europe/Kyiv
+      - TZ=Europe/Kyiv
 
   mysql:
     image: mysql:8.0
@@ -39,6 +41,7 @@ services:
       MYSQL_DATABASE: school_tests
       MYSQL_USER: school_user
       MYSQL_PASSWORD: school_password
+      TZ: Europe/Kyiv
     volumes:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysql_data:/var/lib/mysql
