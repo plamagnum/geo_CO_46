@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/assignments.php';
 
 requireAdmin();
 
@@ -55,6 +56,30 @@ $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $results = $stmt->fetchAll();
 
+// Середні оцінки учень × тема (з урахуванням фільтрів)
+$avgQuery = '
+    SELECT u.first_name, u.last_name, t.name AS topic_name, s.name AS subject_name,
+           GROUP_CONCAT(tr.score_percent) AS percents
+    FROM test_results tr
+    JOIN users u ON tr.user_id = u.id
+    JOIN topics t ON tr.topic_id = t.id
+    JOIN subjects s ON t.subject_id = s.id
+    WHERE 1=1
+';
+$avgParams = [];
+if ($filterUser > 0) {
+    $avgQuery .= ' AND tr.user_id = ?';
+    $avgParams[] = $filterUser;
+}
+if ($filterSubject > 0) {
+    $avgQuery .= ' AND t.subject_id = ?';
+    $avgParams[] = $filterSubject;
+}
+$avgQuery .= ' GROUP BY tr.user_id, tr.topic_id ORDER BY u.last_name, u.first_name, s.name, t.name LIMIT 200';
+$stmt = $pdo->prepare($avgQuery);
+$stmt->execute($avgParams);
+$averages = $stmt->fetchAll();
+
 // Списки для фільтрів
 $users    = $pdo->query('SELECT id, first_name, last_name FROM users WHERE role = "user" ORDER BY last_name, first_name')->fetchAll();
 $subjects = $pdo->query('SELECT * FROM subjects ORDER BY name')->fetchAll();
@@ -101,6 +126,35 @@ require_once __DIR__ . '/../includes/header.php';
         <p>Результатів не знайдено.</p>
     </div>
 <?php else: ?>
+
+<?php if (!empty($averages)): ?>
+    <h2>Середні оцінки за темами</h2>
+    <p class="text-muted">Тест можна проходити кілька разів — підсумкова оцінка за тему є середньою за всі спроби.</p>
+    <div class="table-wrapper">
+        <table class="admin-table">
+            <thead>
+                <tr><th>Учень</th><th>Тема</th><th>Предмет</th><th>Спроб</th><th>Середня оцінка</th></tr>
+            </thead>
+            <tbody>
+                <?php foreach ($averages as $row): ?>
+                    <?php $att = attemptsSummary($row['percents']); ?>
+                    <tr>
+                        <td><?= e($row['last_name'] . ' ' . $row['first_name']) ?></td>
+                        <td><?= e($row['topic_name']) ?></td>
+                        <td><?= e($row['subject_name']) ?></td>
+                        <td><?= $att['attempts'] ?></td>
+                        <td>
+                            <span class="score-badge <?= $att['avg'] >= 7 ? 'good' : 'bad' ?>">
+                                <?= formatGrade($att['avg']) ?> <?= gradeWord($att['avg']) ?>
+                            </span>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <h2>Усі спроби</h2>
+<?php endif; ?>
     <div class="table-wrapper">
         <table class="admin-table">
             <thead>

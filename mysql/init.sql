@@ -72,7 +72,9 @@ CREATE TABLE IF NOT EXISTS `test_results` (
     `total_questions` INT NOT NULL,
     `correct_answers` INT NOT NULL,
     `score_percent` DECIMAL(5,2) NOT NULL,
+    `assignment_id` INT NULL DEFAULT NULL,
     `completed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_tr_assignment` (`assignment_id`),
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`topic_id`) REFERENCES `topics`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

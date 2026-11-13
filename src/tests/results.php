@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/assignments.php';
 
 requireLogin();
 
@@ -46,6 +47,18 @@ $stmt = $pdo->prepare('
 $stmt->execute([$userId, $perPage, $offset]);
 $results = $stmt->fetchAll();
 
+$stmt = $pdo->prepare('
+    SELECT t.name AS topic_name, s.name AS subject_name, GROUP_CONCAT(tr.score_percent) AS percents
+    FROM test_results tr
+    JOIN topics t ON tr.topic_id = t.id
+    JOIN subjects s ON t.subject_id = s.id
+    WHERE tr.user_id = ?
+    GROUP BY tr.topic_id
+    ORDER BY MAX(tr.completed_at) DESC
+');
+$stmt->execute([$userId]);
+$averages = $stmt->fetchAll();
+
 $pageTitle = 'Мої результати';
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -83,6 +96,34 @@ require_once __DIR__ . '/../includes/header.php';
         <a href="/tests/index.php" class="btn btn-primary">До тестів</a>
     </div>
 <?php else: ?>
+
+<?php if (!empty($averages)): ?>
+    <h2>Середні оцінки за темами</h2>
+    <p class="text-muted">Тест можна проходити кілька разів — підсумкова оцінка за тему є середньою за всі спроби.</p>
+    <div class="results-table-wrapper">
+        <table class="results-table">
+            <thead>
+                <tr><th>Тема</th><th>Предмет</th><th>Спроб</th><th>Середня оцінка</th></tr>
+            </thead>
+            <tbody>
+                <?php foreach ($averages as $row): ?>
+                    <?php $att = attemptsSummary($row['percents']); ?>
+                    <tr>
+                        <td><?= e($row['topic_name']) ?></td>
+                        <td><?= e($row['subject_name']) ?></td>
+                        <td><?= $att['attempts'] ?></td>
+                        <td>
+                            <span class="score-badge <?= $att['avg'] >= 7 ? 'good' : 'bad' ?>">
+                                <?= formatGrade($att['avg']) ?> <?= gradeWord($att['avg']) ?>
+                            </span>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <h2>Усі спроби</h2>
+<?php endif; ?>
     <div class="results-table-wrapper">
         <table class="results-table">
             <thead>

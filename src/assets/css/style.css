@@ -1318,3 +1318,15 @@ body.no-copy input, body.no-copy textarea, body.no-copy [contenteditable="true"]
 .q-image-admin { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; }
 .q-image-admin .q-image { max-height: 160px; }
 .answer-preview .a-image { max-height: 80px; }
+
+/* Кілька правильних відповідей */
+.multi-hint { margin: 0 0 0.75rem; font-size: 0.9rem; color: var(--accent); font-weight: 600; }
+.answers-list.multi .answer-icon { border-radius: 4px; }
+.answers-list.multi .answer-option.selected .answer-icon::after { content: '✓'; color: #fff; font-size: 14px; line-height: 18px; display: block; text-align: center; }
+.check-multi-btn { margin-top: 0.75rem; }
+.score-average { margin-top: 0.5rem; font-weight: 600; }
+.attempts-info { font-size: 0.85rem; color: var(--text-secondary); margin: 0.5rem 0; }
+.badge-multi { background: var(--accent-light); color: var(--accent); }
+.answer-preview-row { display: flex; align-items: stretch; gap: 0.35rem; }
+.answer-preview-row .answer-preview { flex: 1; }
+.answer-toggle { min-width: 2rem; padding: 0 0.5rem; }

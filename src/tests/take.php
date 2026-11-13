@@ -12,6 +12,7 @@ requireLogin();
 
 $pdo = getDB();
 ensureImageColumns($pdo);
+ensureAssignmentTables($pdo);
 $topicId = (int)($_GET['topic_id'] ?? 0);
 $userId  = (int)$_SESSION['user_id'];
 
@@ -40,7 +41,6 @@ if (!$topic) {
 $assignmentId = (int)($_GET['assignment_id'] ?? $_POST['assignment_id'] ?? 0);
 $assignment = null;
 if ($assignmentId > 0) {
-    ensureAssignmentTables($pdo);
     $stmt = $pdo->prepare('
         SELECT a.*, ar.result_id FROM assignments a
         JOIN assignment_recipients ar ON ar.assignment_id = a.id
@@ -71,6 +71,12 @@ foreach ($questions as &$question) {
     $stmt = $pdo->prepare('SELECT * FROM answers WHERE question_id = ? ORDER BY RAND()');
     $stmt->execute([$question['id']]);
     $question['answers'] = $stmt->fetchAll();
+    $question['correct_ids'] = array_map('intval', array_column(
+        array_filter($question['answers'], fn($a) => (int)$a['is_correct'] === 1), 'id'
+    ));
+    sort($question['correct_ids']);
+    // Кілька правильних відповідей — учень обирає галочками
+    $question['multiple'] = count($question['correct_ids']) > 1;
 }
 unset($question);
 
@@ -107,24 +113,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $results = [];
 
         foreach ($questions as $question) {
-            $selectedAnswerId = (int)($userAnswers[$question['id']] ?? 0);
-            $correctAnswerId  = 0;
+            $validIds = array_map('intval', array_column($question['answers'], 'id'));
+            $raw      = $userAnswers[$question['id']] ?? [];
+            $selected = array_values(array_unique(array_intersect(
+                array_map('intval', is_array($raw) ? $raw : [$raw]), $validIds
+            )));
+            sort($selected);
 
-            foreach ($question['answers'] as $answer) {
-                if ($answer['is_correct']) {
-                    $correctAnswerId = (int)$answer['id'];
-                    break;
-                }
-            }
-
-            $isCorrect = ($selectedAnswerId === $correctAnswerId);
+            // Зараховується лише точний збіг: обрано всі правильні й жодної зайвої
+            $isCorrect = $selected === $question['correct_ids'];
             if ($isCorrect) {
                 $correctCount++;
             }
 
             $results[$question['id']] = [
-                'selected'  => $selectedAnswerId,
-                'correct'   => $correctAnswerId,
+                'selected'   => $selected,
+                'correct'    => $question['correct_ids'],
                 'is_correct' => $isCorrect,
             ];
         }
@@ -133,10 +137,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Збереження результату в БД
         $stmt = $pdo->prepare('
-            INSERT INTO test_results (user_id, topic_id, total_questions, correct_answers, score_percent)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO test_results (user_id, topic_id, total_questions, correct_answers, score_percent, assignment_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         ');
-        $stmt->execute([$userId, $topicId, $totalCount, $correctCount, $scorePercent]);
+        $stmt->execute([$userId, $topicId, $totalCount, $correctCount, $scorePercent, $assignment ? $assignmentId : null]);
         $resultId = $pdo->lastInsertId();
 
         if ($assignment && empty($assignment['result_id'])) {
@@ -147,8 +151,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$resultId, $assignmentId, $userId]);
         }
 
+        // Середня оцінка за всі спроби (у межах завдання або теми)
+        if ($assignment) {
+            $stmt = $pdo->prepare('SELECT GROUP_CONCAT(score_percent) FROM test_results WHERE user_id = ? AND assignment_id = ?');
+            $stmt->execute([$userId, $assignmentId]);
+        } else {
+            $stmt = $pdo->prepare('SELECT GROUP_CONCAT(score_percent) FROM test_results WHERE user_id = ? AND topic_id = ?');
+            $stmt->execute([$userId, $topicId]);
+        }
+        $summary = attemptsSummary($stmt->fetchColumn() ?: null);
+
         $sendJson([
             'success'        => true,
+            'attempts'       => $summary['attempts'],
+            'average_grade'  => $summary['avg'],
             'correct'        => $correctCount,
             'total'          => $totalCount,
             'score_percent'  => $scorePercent,
@@ -207,13 +223,16 @@ require_once __DIR__ . '/../includes/header.php';
                     <div class="question-number">Запитання <?= $index + 1 ?></div>
                     <h2 class="question-text"><?= e($question['text']) ?></h2>
                     <?= imageTag($question['image'] ?? null) ?>
+                    <?php if ($question['multiple']): ?>
+                        <p class="multi-hint">☑ Оберіть усі правильні відповіді (їх кілька), потім натисніть «Перевірити»</p>
+                    <?php endif; ?>
 
-                    <div class="answers-list">
+                    <div class="answers-list<?= $question['multiple'] ? ' multi' : '' ?>">
                         <?php foreach ($question['answers'] as $answer): ?>
                             <label class="answer-option" for="answer-<?= (int)$answer['id'] ?>">
                                 <input
-                                    type="radio"
-                                    name="answers[<?= (int)$question['id'] ?>]"
+                                    type="<?= $question['multiple'] ? 'checkbox' : 'radio' ?>"
+                                    name="answers[<?= (int)$question['id'] ?>]<?= $question['multiple'] ? '[]' : '' ?>"
                                     id="answer-<?= (int)$answer['id'] ?>"
                                     value="<?= (int)$answer['id'] ?>"
                                     data-correct="<?= $answer['is_correct'] ? '1' : '0' ?>"
@@ -224,6 +243,9 @@ require_once __DIR__ . '/../includes/header.php';
                             </label>
                         <?php endforeach; ?>
                     </div>
+                    <?php if ($question['multiple']): ?>
+                        <button type="button" class="btn btn-secondary btn-sm check-multi-btn" disabled>Перевірити</button>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -246,10 +268,12 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </div>
             <p class="score-details" id="scoreDetails"></p>
+            <p class="score-average" id="scoreAverage"></p>
         </div>
 
         <div class="results-actions">
             <a href="/tests/index.php" class="btn btn-outline">← До списку тестів</a>
+            <a href="" class="btn btn-outline" onclick="location.reload(); return false;">↻ Пройти ще раз</a>
             <button type="button" class="btn btn-primary" id="reviewBtn">Переглянути відповіді</button>
             <a href="/tests/results.php" class="btn btn-secondary">Мої результати</a>
         </div>
@@ -266,6 +290,7 @@ require_once __DIR__ . '/../includes/header.php';
 window.questionsData = <?= json_encode(array_map(function($q) {
     return [
         'id'      => (int)$q['id'],
+        'multiple' => $q['multiple'],
         'text'    => $q['text'],
         'image'   => imageUrl($q['image'] ?? null),
         'answers' => array_map(function($a) {

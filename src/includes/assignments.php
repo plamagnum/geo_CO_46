@@ -44,7 +44,32 @@ function ensureAssignmentTables(PDO $pdo): void {
             FOREIGN KEY (`result_id`) REFERENCES `test_results`(`id`) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+    // Прив'язка кожної спроби до завдання (для повторних проходжень і середньої оцінки)
+    if (!$pdo->query("SHOW COLUMNS FROM `test_results` LIKE 'assignment_id'")->fetch()) {
+        $pdo->exec("ALTER TABLE `test_results` ADD COLUMN `assignment_id` INT NULL DEFAULT NULL, ADD INDEX `idx_tr_assignment` (`assignment_id`)");
+        $pdo->exec("
+            UPDATE test_results tr
+            JOIN assignment_recipients ar ON ar.result_id = tr.id
+            SET tr.assignment_id = ar.assignment_id
+        ");
+    }
     $done = true;
+}
+
+/**
+ * Кількість спроб і середня оцінка (12-бальна) для набору відсотків, розділених комою
+ * (результат GROUP_CONCAT(score_percent)).
+ *
+ * @return array{attempts:int, avg:float}
+ */
+function attemptsSummary(?string $percentsCsv): array {
+    $percents = ($percentsCsv === null || $percentsCsv === '') ? [] : explode(',', $percentsCsv);
+    return ['attempts' => count($percents), 'avg' => averageGrade($percents)];
+}
+
+/** Форматування середньої оцінки: 8 або 8,5 */
+function formatGrade(float $grade): string {
+    return str_replace('.', ',', (string)(floor($grade) == $grade ? (int)$grade : $grade));
 }
 
 /**

@@ -131,10 +131,12 @@ const TestEngine = {
 
     // Прив'язка кліків на відповідях
     bindAnswers() {
+        this.bindMultiAnswers();
+
         document.querySelectorAll('.answer-option').forEach((option) => {
             option.addEventListener('click', (e) => {
                 const radio = option.querySelector('.answer-radio');
-                if (!radio || option.classList.contains('answered')) return;
+                if (!radio || radio.type !== 'radio' || option.classList.contains('answered')) return;
 
                 const questionCard = option.closest('.question-card');
                 const questionId = questionCard?.dataset.questionId;
@@ -163,6 +165,34 @@ const TestEngine = {
                 }
 
                 this.answeredQuestions.add(questionId);
+                this.updateNavButtons();
+            });
+        });
+    },
+
+    // Запитання з кількома правильними відповідями (галочки + кнопка «Перевірити»)
+    bindMultiAnswers() {
+        document.querySelectorAll('.answers-list.multi').forEach((list) => {
+            const card = list.closest('.question-card');
+            const checkBtn = card.querySelector('.check-multi-btn');
+            const boxes = [...list.querySelectorAll('.answer-radio')];
+
+            boxes.forEach((box) => box.addEventListener('change', () => {
+                box.closest('.answer-option').classList.toggle('selected', box.checked);
+                if (checkBtn) checkBtn.disabled = !boxes.some((b) => b.checked);
+            }));
+
+            checkBtn?.addEventListener('click', () => {
+                boxes.forEach((box) => {
+                    const opt = box.closest('.answer-option');
+                    opt.classList.add('answered');
+                    box.disabled = true;
+                    if (box.dataset.correct === '1') opt.classList.add('correct');
+                    else if (box.checked) opt.classList.add('wrong');
+                });
+                checkBtn.disabled = true;
+                checkBtn.style.display = 'none';
+                this.answeredQuestions.add(card.dataset.questionId);
                 this.updateNavButtons();
             });
         });
@@ -233,12 +263,17 @@ const TestEngine = {
         const formData = new FormData(form);
 
         // Додавання відповідей (може статись що не всі запитання мають відповідь)
+        // (галочки після «Перевірити» вимкнені й не потрапляють у FormData — збираємо вручну)
         for (const card of document.querySelectorAll('.question-card')) {
             const questionId = card.dataset.questionId;
-            const checkedRadio = card.querySelector('.answer-radio:checked');
-            if (checkedRadio && questionId) {
-                formData.set(`answers[${questionId}]`, checkedRadio.value);
-            }
+            if (!questionId) continue;
+            formData.delete(`answers[${questionId}]`);
+            formData.delete(`answers[${questionId}][]`);
+            const checked = card.querySelectorAll('.answer-radio:checked');
+            const multi = card.querySelector('.answers-list.multi') !== null;
+            checked.forEach((input) => {
+                formData.append(multi ? `answers[${questionId}][]` : `answers[${questionId}]`, input.value);
+            });
         }
 
         try {
@@ -290,6 +325,14 @@ const TestEngine = {
         document.getElementById('scoreNumber').textContent = grade;
         document.getElementById('scoreDetails').textContent =
             `${grade} ${this.gradeWord(grade)} з 12 · Правильних відповідей: ${result.correct} з ${result.total} (${Math.round(result.score_percent)}%)`;
+
+        const avgEl = document.getElementById('scoreAverage');
+        if (avgEl && result.attempts) {
+            const avg = String(result.average_grade).replace('.', ',');
+            avgEl.textContent = result.attempts > 1
+                ? `Середня оцінка за ${result.attempts} спроб(и): ${avg} з 12`
+                : 'Це ваша перша спроба. Тест можна пройти ще раз — оцінка буде середньою.';
+        }
 
         // Іконка залежно від результату
         const icon = document.getElementById('resultsIcon');
@@ -354,8 +397,8 @@ const TestEngine = {
             let answersHtml = '';
 
             question.answers.forEach((answer) => {
-                const isSelected = answer.id === qResult.selected;
-                const isCorrect = answer.id === qResult.correct;
+                const isSelected = qResult.selected.includes(answer.id);
+                const isCorrect = qResult.correct.includes(answer.id);
                 let style = '';
                 if (isCorrect) style = 'color: var(--success); font-weight: 600;';
                 else if (isSelected && !isCorrect) style = 'color: var(--danger);';

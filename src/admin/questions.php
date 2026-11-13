@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $topicId      = (int)($_POST['topic_id'] ?? 0);
             $questionText = trim($_POST['question_text'] ?? '');
             $answers      = $_POST['answers'] ?? [];
-            $correctAnswer = (int)($_POST['correct_answer'] ?? 0);
+            $correctAnswers = array_map('intval', (array)($_POST['correct_answers'] ?? []));
 
             $questionImage = null;
             try {
@@ -39,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // помилка картинки вже записана
             } elseif ((empty($questionText) && $questionImage === null) || $topicId <= 0 || count($answers) < 2) {
                 $error = 'Заповніть всі поля. Потрібно мінімум 2 варіанти відповідей.';
+            } elseif (!array_filter($correctAnswers, fn($i) => trim((string)($answers[$i] ?? '')) !== '')) {
+                $error = 'Позначте хоча б одну правильну відповідь (серед заповнених варіантів).';
             } else {
                 $stmt = $pdo->prepare('INSERT INTO questions (topic_id, text, image) VALUES (?, ?, ?)');
                 $stmt->execute([$topicId, $questionText, $questionImage]);
@@ -47,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach ($answers as $index => $answerText) {
                     $answerText = trim($answerText);
                     if (empty($answerText)) continue;
-                    $isCorrect = ($index === $correctAnswer) ? 1 : 0;
+                    $isCorrect = in_array($index, $correctAnswers, true) ? 1 : 0;
                     $stmt = $pdo->prepare('INSERT INTO answers (question_id, text, is_correct) VALUES (?, ?, ?)');
                     $stmt->execute([$newQuestionId, $answerText, $isCorrect]);
                 }
@@ -57,6 +59,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare('UPDATE questions SET image = NULL WHERE id = ?');
             $stmt->execute([$questionId]);
             $message = 'Картинку прибрано із запитання.';
+        } elseif (isset($_POST['toggle_answer_id']) && $questionId > 0) {
+            $answerId = (int)$_POST['toggle_answer_id'];
+            $stmt = $pdo->prepare('UPDATE answers SET is_correct = 1 - is_correct WHERE id = ? AND question_id = ?');
+            $stmt->execute([$answerId, $questionId]);
+            $message = $stmt->rowCount() ? 'Позначку правильної відповіді змінено.' : 'Відповідь не знайдено.';
         } elseif ($action === 'set_correct' && $questionId > 0) {
             $answerId = (int)($_POST['answer_id'] ?? 0);
             $stmt = $pdo->prepare('SELECT id FROM answers WHERE id = ? AND question_id = ?');
@@ -284,11 +291,11 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="answers-editor">
-            <p class="form-label">Варіанти відповідей (оберіть правильну):</p>
+            <p class="form-label">Варіанти відповідей (позначте правильну; можна кілька — тоді учень обиратиме галочками):</p>
             <?php for ($i = 0; $i < 4; $i++): ?>
                 <div class="answer-row">
                     <label class="answer-correct-label">
-                        <input type="radio" name="correct_answer" value="<?= $i ?>" <?= $i === 0 ? 'required' : '' ?>>
+                        <input type="checkbox" name="correct_answers[]" value="<?= $i ?>">
                         <span class="radio-dot"></span>
                     </label>
                     <input
@@ -431,13 +438,24 @@ require_once __DIR__ . '/../includes/header.php';
                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                 <input type="hidden" name="action" value="set_correct">
                 <input type="hidden" name="question_id" value="<?= (int)$question['id'] ?>">
+                <?php $correctTotal = count(array_filter($question['answers'], fn($a) => (int)$a['is_correct'] === 1)); ?>
+                <?php if ($correctTotal > 1): ?>
+                    <span class="badge badge-multi">☑ кілька правильних (<?= $correctTotal ?>) — учень обирає галочками</span>
+                <?php endif; ?>
                 <?php foreach ($question['answers'] as $answer): ?>
-                    <button type="submit" name="answer_id" value="<?= (int)$answer['id'] ?>"
-                            class="answer-preview <?= $answer['is_correct'] ? 'correct' : '' ?>"
-                            style="cursor: pointer; border: none; font: inherit; text-align: left"
-                            title="Позначити як правильну">
-                        <?= $answer['is_correct'] ? '✓' : '○' ?> <?= e($answer['text']) ?><?= imageTag($answer['image'] ?? null, 'a-image') ?>
-                    </button>
+                    <div class="answer-preview-row">
+                        <button type="submit" name="answer_id" value="<?= (int)$answer['id'] ?>"
+                                class="answer-preview <?= $answer['is_correct'] ? 'correct' : '' ?>"
+                                style="cursor: pointer; border: none; font: inherit; text-align: left"
+                                title="Зробити єдиною правильною">
+                            <?= $answer['is_correct'] ? '✓' : '○' ?> <?= e($answer['text']) ?><?= imageTag($answer['image'] ?? null, 'a-image') ?>
+                        </button>
+                        <button type="submit" name="toggle_answer_id" value="<?= (int)$answer['id'] ?>"
+                                class="btn btn-outline btn-sm answer-toggle"
+                                title="<?= $answer['is_correct'] ? 'Зняти позначку правильної' : 'Додати як ще одну правильну' ?>">
+                            <?= $answer['is_correct'] ? '−' : '+' ?>
+                        </button>
+                    </div>
                 <?php endforeach; ?>
             </form>
         </div>

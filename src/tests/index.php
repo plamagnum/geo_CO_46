@@ -52,6 +52,12 @@ $stmt = $pdo->prepare($topicsQuery);
 $stmt->execute($params);
 $topics = $stmt->fetchAll();
 
+// Спроби поточного користувача за темами
+ensureAssignmentTables($pdo);
+$stmt = $pdo->prepare('SELECT topic_id, GROUP_CONCAT(score_percent) AS percents FROM test_results WHERE user_id = ? GROUP BY topic_id');
+$stmt->execute([(int)$_SESSION['user_id']]);
+$myAttempts = array_map('attemptsSummary', $stmt->fetchAll(PDO::FETCH_KEY_PAIR));
+
 $pendingAssignments = isAdmin() ? [] : getPendingAssignments($pdo, (int)$_SESSION['user_id']);
 
 $pageTitle = 'Тести';
@@ -122,8 +128,15 @@ require_once __DIR__ . '/../includes/header.php';
                         <?= (int)$topic['questions_count'] ?> запитань
                     </span>
                 </div>
+                <?php $att = $myAttempts[$topic['id']] ?? null; ?>
+                <?php if ($att): ?>
+                    <p class="attempts-info">
+                        Спроб: <?= $att['attempts'] ?> · середня оцінка:
+                        <span class="score-badge <?= $att['avg'] >= 7 ? 'good' : 'bad' ?>"><?= formatGrade($att['avg']) ?></span>
+                    </p>
+                <?php endif; ?>
                 <a href="/tests/take.php?topic_id=<?= (int)$topic['id'] ?>" class="btn btn-primary btn-full">
-                    Почати тест
+                    <?= $att ? '↻ Пройти ще раз' : 'Почати тест' ?>
                 </a>
             </div>
         <?php endforeach; ?>
