@@ -155,6 +155,7 @@ docker-compose down -v
 ├── parsers/
 │   ├── parser.php              # PHP парсер
 │   ├── parser.py               # Python парсер
+│   ├── vseosvita_parser.py     # Парсер тестів vseosvita.ua
 │   ├── config.php              # Конфігурація PHP парсера
 │   ├── config.py               # Конфігурація Python парсера
 │   └── output/                 # Директорія для JSON результатів
@@ -376,6 +377,28 @@ python parsers/parser.py
 ```
 
 Результат: `parsers/output/parsed_questions.json`
+
+---
+
+### Парсер тестів vseosvita.ua
+
+`parsers/vseosvita_parser.py` витягує запитання, варіанти та картинки зі сторінок
+`https://vseosvita.ua/test/...html`.
+
+> ⚠ Публічна сторінка тесту **не містить правильних відповідей** (Всеосвіта перевіряє їх
+> на сервері). Усі відповіді імпортуються як неправильні — після імпорту позначте правильні
+> в адмін-панелі («Запитання» → «Позначити відповіді», кнопка «+/−»). До того тест
+> показується учням як «ще не готовий».
+
+```bash
+python parsers/vseosvita_parser.py https://vseosvita.ua/test/8-klas-topohrafichna-karta-1014428.html --topic-id 5
+# кілька тестів в один файл / збережена сторінка / без картинок
+python parsers/vseosvita_parser.py URL1 URL2 --topic-id 5 -o geo8.json
+python parsers/vseosvita_parser.py --file page.html --topic-id 5 --no-images
+```
+
+Підтримуються запитання з однією або кількома правильними відповідями; інші типи пропускаються.
+Результат: `parsers/output/vseosvita_questions.json`.
 
 ---
 
