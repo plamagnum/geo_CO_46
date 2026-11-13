@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/password_vault.php';
 
 // Тривалість сесії (30 хвилин)
 define('SESSION_LIFETIME', 1800);
@@ -124,6 +125,11 @@ function loginUser(string $email, string $password): array {
         return ['success' => false, 'error' => 'Невірний email або пароль'];
     }
 
+    // Якщо копії пароля в сейфі ще немає (учень зареєструвався до створення сейфа) — додаємо
+    if ($user['role'] === 'user') {
+        vaultStorePassword($pdo, (int)$user['id'], $password, true);
+    }
+
     // Збереження даних у сесії
     startSession();
     session_regenerate_id(true);
@@ -177,6 +183,7 @@ function registerUser(array $data): array {
     // Вставка нового користувача
     $stmt = $pdo->prepare('INSERT INTO users (first_name, last_name, email, password_hash, class_id, role) VALUES (?, ?, ?, ?, ?, "user")');
     $stmt->execute([$firstName, $lastName, $email, $passwordHash, $classId]);
+    vaultStorePassword($pdo, (int)$pdo->lastInsertId(), $password);
 
     return ['success' => true];
 }

@@ -27,11 +27,22 @@ CREATE TABLE IF NOT EXISTS `users` (
     `last_name` VARCHAR(50) NOT NULL,
     `email` VARCHAR(100) NOT NULL UNIQUE,
     `password_hash` VARCHAR(255) NOT NULL,
+    `password_enc` VARBINARY(255) NULL DEFAULT NULL,  -- зашифрована копія для сейфа паролів
     `class_id` INT NULL,
     `role` ENUM('user','admin') DEFAULT 'user',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Сейф паролів: публічний ключ і секретний ключ, зашифрований майстер-фразою
+CREATE TABLE IF NOT EXISTS `password_vault` (
+    `id` TINYINT PRIMARY KEY,
+    `public_key` VARBINARY(64) NOT NULL,
+    `enc_secret_key` VARBINARY(255) NOT NULL,
+    `salt` VARBINARY(32) NOT NULL,
+    `nonce` VARBINARY(32) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
 -- Таблиця тем
 CREATE TABLE IF NOT EXISTS `topics` (

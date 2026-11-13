@@ -12,6 +12,7 @@ $pdo        = getDB();
 $csrfToken  = generateCsrfToken();
 $message    = '';
 $error      = '';
+$newPassword = null;
 
 // Обробка дій
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -29,6 +30,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
                 $stmt->execute([$userId]);
                 $message = 'Користувача видалено успішно.';
+            }
+        } elseif ($action === 'reset_password' && $userId > 0) {
+            $stmt = $pdo->prepare('SELECT id, first_name, last_name, role FROM users WHERE id = ?');
+            $stmt->execute([$userId]);
+            $target = $stmt->fetch();
+            if (!$target || $target['role'] !== 'user') {
+                $error = 'Скинути пароль можна лише учню.';
+            } else {
+                $plain = generateStudentPassword();
+                $stmt = $pdo->prepare('UPDATE users SET password_hash = ? WHERE id = ?');
+                $stmt->execute([password_hash($plain, PASSWORD_DEFAULT), $userId]);
+                vaultStorePassword($pdo, $userId, $plain);
+                $newPassword = [
+                    'name'     => $target['last_name'] . ' ' . $target['first_name'],
+                    'password' => $plain,
+                ];
             }
         } elseif ($action === 'change_role' && $userId > 0) {
             $newRole = $_POST['role'] ?? 'user';
@@ -68,6 +85,15 @@ require_once __DIR__ . '/../includes/header.php';
 <?php if ($error): ?>
     <div class="alert alert-error"><?= e($error) ?></div>
 <?php endif; ?>
+<?php if ($newPassword): ?>
+    <div class="alert alert-success new-password-alert">
+        🔑 Новий пароль для <strong><?= e($newPassword['name']) ?></strong>:
+        <code class="new-password"><?= e($newPassword['password']) ?></code>
+        <br><small>Повідомте його учню. Тут він показується лише зараз<?= vaultIsConfigured($pdo) ? ', копію збережено в <a href="/admin/passwords.php">сейфі паролів</a>' : '' ?>.</small>
+    </div>
+<?php endif; ?>
+
+<p><a href="/admin/passwords.php" class="btn btn-outline btn-sm">🔒 Сейф паролів учнів</a></p>
 
 <div class="table-wrapper">
     <table class="admin-table">
@@ -107,6 +133,17 @@ require_once __DIR__ . '/../includes/header.php';
                                     <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Адмін</option>
                                 </select>
                             </form>
+
+                            <?php if ($user['role'] === 'user'): ?>
+                            <!-- Скидання пароля -->
+                            <form method="POST" action="" style="display:inline"
+                                  onsubmit="return confirm('Згенерувати новий пароль для <?= e(addslashes($user['first_name'] . ' ' . $user['last_name'])) ?>? Старий перестане працювати.')">
+                                <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                                <input type="hidden" name="action" value="reset_password">
+                                <input type="hidden" name="user_id" value="<?= (int)$user['id'] ?>">
+                                <button type="submit" class="btn btn-outline btn-sm" title="Скинути пароль">🔑 Пароль</button>
+                            </form>
+                            <?php endif; ?>
 
                             <!-- Видалення -->
                             <form method="POST" action="" style="display:inline" onsubmit="return confirm('Ви впевнені, що хочете видалити цього користувача?')">

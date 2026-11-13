@@ -1330,3 +1330,16 @@ body.no-copy input, body.no-copy textarea, body.no-copy [contenteditable="true"]
 .answer-preview-row { display: flex; align-items: stretch; gap: 0.35rem; }
 .answer-preview-row .answer-preview { flex: 1; }
 .answer-toggle { min-width: 2rem; padding: 0 0.5rem; }
+
+/* Сейф паролів / скидання пароля */
+code.new-password {
+    font-size: 1.1em;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-card);
+    border: 1px dashed var(--accent, #4f46e5);
+    user-select: all;
+}
+details.admin-form-card > summary { cursor: pointer; font-weight: 600; }
+details.admin-form-card[open] > summary { margin-bottom: 12px; }

@@ -105,6 +105,10 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="action-icon">📊</span>
             <span>Результати</span>
         </a>
+        <a href="/admin/passwords.php" class="action-card">
+            <span class="action-icon">🔒</span>
+            <span>Сейф паролів</span>
+        </a>
     </div>
 </div>
 
