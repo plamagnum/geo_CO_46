@@ -755,6 +755,11 @@ img { max-width: 100%; display: block; }
     background: #ebf8ff;
     color: #2b6cb0;
 }
+.badge-game {
+    background: #fefcbf;
+    color: #975a16;
+    white-space: nowrap;
+}
 
 .test-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; }
 
@@ -1343,3 +1348,12 @@ code.new-password {
 }
 details.admin-form-card > summary { cursor: pointer; font-weight: 600; }
 details.admin-form-card[open] > summary { margin-bottom: 12px; }
+
+/* Кнопки ігор у картці теми */
+.topic-games {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+.topic-games .btn { flex: 1 1 auto; justify-content: center; }

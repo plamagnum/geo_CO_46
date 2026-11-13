@@ -139,7 +139,7 @@ require_once __DIR__ . '/../includes/header.php';
             <tbody>
                 <?php foreach ($results as $result): ?>
                     <tr>
-                        <td><?= e($result['topic_name']) ?></td>
+                        <td><?= e($result['topic_name']) ?><?= gameBadge($result['game'] ?? null) ?></td>
                         <td><?= e($result['subject_name']) ?></td>
                         <td><?= e($result['class_name']) ?></td>
                         <td><?= (int)$result['correct_answers'] ?> / <?= (int)$result['total_questions'] ?></td>

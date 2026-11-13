@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'send') {
             $topicId = (int)($_POST['topic_id'] ?? 0);
             $type    = $_POST['type'] ?? '';
+            $game    = (string)($_POST['game'] ?? '');
             $target  = $_POST['target'] ?? '';
             $classId = (int)($_POST['class_id'] ?? 0);
             $userIds = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['user_ids'] ?? [])))));
@@ -36,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($topicId <= 0 || !isset(ASSIGNMENT_TYPES[$type])) {
                 $error = 'Оберіть тему та тип завдання.';
+            } elseif ($game !== '' && !getGame($game)) {
+                $error = 'Обрану гру не знайдено.';
             } elseif ((int)$readyStmt->fetchColumn() === 0) {
                 $error = 'У цій темі немає запитань з позначеною правильною відповіддю. Позначте їх у розділі «Запитання».';
             } else {
@@ -56,8 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $pdo->beginTransaction();
                     try {
-                        $stmt = $pdo->prepare('INSERT INTO assignments (topic_id, type, created_by) VALUES (?, ?, ?)');
-                        $stmt->execute([$topicId, $type, (int)$_SESSION['user_id']]);
+                        $stmt = $pdo->prepare('INSERT INTO assignments (topic_id, type, game, created_by) VALUES (?, ?, ?, ?)');
+                        $stmt->execute([$topicId, $type, $game !== '' ? $game : null, (int)$_SESSION['user_id']]);
                         $assignmentId = (int)$pdo->lastInsertId();
 
                         $ins = $pdo->prepare('INSERT INTO assignment_recipients (assignment_id, user_id) VALUES (?, ?)');
@@ -141,6 +144,17 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="form-group">
+            <label class="form-label" for="game">Формат</label>
+            <select name="game" id="game" class="form-select">
+                <option value="">📝 Звичайний тест</option>
+                <?php foreach (listGames() as $g): ?>
+                    <option value="<?= e($g['slug']) ?>" title="<?= e($g['description']) ?>"><?= e($g['icon'] . ' Гра «' . $g['name'] . '»') ?></option>
+                <?php endforeach; ?>
+            </select>
+            <small class="text-muted" id="gameDescription"></small>
+        </div>
+
+        <div class="form-group">
             <label class="form-label" for="topic_id">Тема (тест)</label>
             <select name="topic_id" id="topic_id" class="form-select" required>
                 <option value="">— оберіть —</option>
@@ -197,7 +211,7 @@ require_once __DIR__ . '/../includes/header.php';
             <tbody>
                 <?php foreach ($assignments as $a): ?>
                     <tr>
-                        <td><span class="badge badge-info"><?= e(assignmentTypeLabel($a['type'])) ?></span></td>
+                        <td><span class="badge badge-info"><?= e(assignmentTypeLabel($a['type'])) ?></span><?= gameBadge($a['game'] ?? null) ?></td>
                         <td><?= e($a['subject_name']) ?></td>
                         <td>
                             <?= e($a['topic_name']) ?>
@@ -232,6 +246,14 @@ require_once __DIR__ . '/../includes/header.php';
     }
     target.addEventListener('change', sync);
     sync();
+
+    var game = document.getElementById('game');
+    function describe() {
+        var opt = game.options[game.selectedIndex];
+        document.getElementById('gameDescription').textContent = opt.value ? opt.title : '';
+    }
+    game.addEventListener('change', describe);
+    describe();
 })();
 </script>
 

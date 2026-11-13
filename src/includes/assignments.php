@@ -3,6 +3,8 @@
  * Допоміжні функції для завдань (поточне / тематичне)
  */
 
+require_once __DIR__ . '/games.php';
+
 const ASSIGNMENT_TYPES = [
     'current'  => 'Поточне',
     'thematic' => 'Тематичне',
@@ -53,6 +55,7 @@ function ensureAssignmentTables(PDO $pdo): void {
             SET tr.assignment_id = ar.assignment_id
         ");
     }
+    ensureGameColumns($pdo);
     $done = true;
 }
 
@@ -78,7 +81,7 @@ function formatGrade(float $grade): string {
 function getPendingAssignments(PDO $pdo, int $userId): array {
     ensureAssignmentTables($pdo);
     $stmt = $pdo->prepare('
-        SELECT a.id, a.type, a.topic_id, a.created_at,
+        SELECT a.id, a.type, a.game, a.topic_id, a.created_at,
                t.name AS topic_name, s.name AS subject_name,
                (SELECT COUNT(*) FROM questions q WHERE q.topic_id = a.topic_id AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)) AS ready_questions
         FROM assignment_recipients ar

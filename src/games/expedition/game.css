@@ -1,0 +1,131 @@
+/* Гра «Експедиція» */
+.ex-hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1.5rem;
+    justify-content: center;
+    padding: .6rem 1rem;
+    margin-bottom: .75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 1.05rem;
+}
+
+.ex-map {
+    position: relative;
+    height: 260px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1rem;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,.18) 0 8%, transparent 9%),
+        radial-gradient(circle at 70% 70%, rgba(255,255,255,.12) 0 10%, transparent 11%),
+        repeating-linear-gradient(170deg, rgba(255,255,255,.06) 0 6px, transparent 6px 22px),
+        linear-gradient(180deg, #4fa3e0 0%, #1f6fb2 100%);
+    box-shadow: inset 0 0 40px rgba(0,0,0,.25);
+}
+[data-theme="dark"] .ex-map {
+    background:
+        repeating-linear-gradient(170deg, rgba(255,255,255,.05) 0 6px, transparent 6px 22px),
+        linear-gradient(180deg, #1c3d5a 0%, #0b2135 100%);
+}
+
+.ex-route {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.ex-route polyline {
+    fill: none;
+    stroke: rgba(255,255,255,.75);
+    stroke-dasharray: 1.5 1.5;
+    vector-effect: non-scaling-stroke;
+    stroke-width: 2;
+}
+
+.ex-deco, .ex-port, .ex-ship {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    line-height: 1;
+}
+.ex-deco { font-size: 1.6rem; opacity: .8; }
+
+.ex-port {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #f6e05e;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .9rem;
+}
+.ex-port.home { background: #fff; }
+.ex-port.current { animation: ex-pulse 1.2s infinite; }
+.ex-port.won { background: #c6f6d5; }
+.ex-port.lost { background: #fed7d7; }
+
+.ex-ship {
+    font-size: 2.2rem;
+    z-index: 2;
+    margin-top: -18px;
+    filter: drop-shadow(0 3px 3px rgba(0,0,0,.35));
+}
+.ex-ship.sailing {
+    transition: left 1s ease-in-out, top 1s ease-in-out;
+    animation: ex-bob 1s ease-in-out;
+}
+
+.ex-map.storm { animation: ge-shake .5s; }
+.ex-map.storm::after {
+    content: '⛈';
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    font-size: 4rem;
+    transform: translateX(-50%);
+    animation: ex-fade 1.4s forwards;
+}
+
+.ex-panel { min-height: 160px; }
+.ex-port-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: .25rem;
+}
+.ex-port-title small { color: var(--text-muted); font-weight: 400; }
+.ex-npc { color: var(--text-muted); margin: 0 0 .75rem; }
+.ex-sailing { text-align: center; font-size: 1.15rem; color: var(--text-secondary); padding: 2rem 0; }
+
+.ex-feedback:not(:empty) { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; }
+.ex-good, .ex-bad { padding: .7rem 1rem; border-radius: var(--radius-sm); flex: 1 1 300px; }
+.ex-good { background: var(--success-bg); border-left: 4px solid var(--success); }
+.ex-bad { background: var(--danger-bg); border-left: 4px solid var(--danger); }
+
+@keyframes ex-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(246,224,94,.9); }
+    50% { box-shadow: 0 0 0 10px rgba(246,224,94,0); }
+}
+@keyframes ex-bob {
+    0%, 100% { margin-top: -18px; }
+    50% { margin-top: -24px; }
+}
+@keyframes ex-fade {
+    0% { opacity: 0; }
+    20%, 70% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+@media (max-width: 600px) {
+    .ex-map { height: 200px; }
+    .ex-ship { font-size: 1.7rem; }
+    .ex-port { width: 20px; height: 20px; font-size: .7rem; }
+}

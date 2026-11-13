@@ -48,6 +48,11 @@ if ($assignmentId > 0) {
     ');
     $stmt->execute([$assignmentId, $userId, $topicId]);
     $assignment = $stmt->fetch() ?: null;
+    // Учитель призначив це завдання як гру
+    if ($assignment && !empty($assignment['game'])) {
+        header('Location: ' . assignmentUrl($assignment));
+        exit;
+    }
 }
 
 // Завантаження запитань з відповідями

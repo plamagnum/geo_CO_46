@@ -58,6 +58,8 @@ $stmt = $pdo->prepare('SELECT topic_id, GROUP_CONCAT(score_percent) AS percents 
 $stmt->execute([(int)$_SESSION['user_id']]);
 $myAttempts = array_map('attemptsSummary', $stmt->fetchAll(PDO::FETCH_KEY_PAIR));
 
+$games = listGames();
+
 $pendingAssignments = isAdmin() ? [] : getPendingAssignments($pdo, (int)$_SESSION['user_id']);
 
 $pageTitle = 'Тести';
@@ -138,6 +140,16 @@ require_once __DIR__ . '/../includes/header.php';
                 <a href="/tests/take.php?topic_id=<?= (int)$topic['id'] ?>" class="btn btn-primary btn-full">
                     <?= $att ? '↻ Пройти ще раз' : 'Почати тест' ?>
                 </a>
+                <?php if ($games): ?>
+                    <div class="topic-games">
+                        <?php foreach ($games as $g): ?>
+                            <a href="/games/play.php?game=<?= e(rawurlencode($g['slug'])) ?>&amp;topic_id=<?= (int)$topic['id'] ?>"
+                               class="btn btn-outline btn-sm" title="<?= e($g['description']) ?>">
+                                <?= e($g['icon'] . ' ' . $g['name']) ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
     </div>

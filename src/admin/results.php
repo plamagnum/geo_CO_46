@@ -181,7 +181,7 @@ require_once __DIR__ . '/../includes/header.php';
                             <div><?= e($result['first_name'] . ' ' . $result['last_name']) ?></div>
                             <small class="text-muted"><?= e($result['email']) ?><?= $result['user_class_name'] ? ' · ' . e($result['user_class_name']) : '' ?></small>
                         </td>
-                        <td><?= e($result['topic_name']) ?></td>
+                        <td><?= e($result['topic_name']) ?><?= gameBadge($result['game'] ?? null) ?></td>
                         <td><?= e($result['subject_name']) ?></td>
                         <td><?= e($result['class_name']) ?></td>
                         <td><?= (int)$result['correct_answers'] ?> / <?= (int)$result['total_questions'] ?></td>

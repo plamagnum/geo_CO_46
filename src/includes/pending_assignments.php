@@ -11,15 +11,15 @@ if (!empty($pendingAssignments)): ?>
                     <div class="result-info">
                         <strong><?= e($pa['topic_name']) ?></strong>
                         <small>
-                            <span class="badge badge-info"><?= e(assignmentTypeLabel($pa['type'])) ?></span>
+                            <span class="badge badge-info"><?= e(assignmentTypeLabel($pa['type'])) ?></span><?= gameBadge($pa['game'] ?? null) ?>
                             <?= e($pa['subject_name']) ?> · <?= date('d.m.Y H:i', strtotime($pa['created_at'])) ?>
                         </small>
                     </div>
                     <?php if ((int)$pa['ready_questions'] === 0): ?>
                         <span class="text-muted" title="<?= e(testErrorMessage('no_questions')) ?>">Тест ще не готовий</span>
                     <?php else: ?>
-                    <a href="/tests/take.php?topic_id=<?= (int)$pa['topic_id'] ?>&amp;assignment_id=<?= (int)$pa['id'] ?>"
-                       class="btn btn-primary btn-sm">Виконати</a>
+                    <a href="<?= e(assignmentUrl($pa)) ?>"
+                       class="btn btn-primary btn-sm"><?= !empty($pa['game']) ? '🎮 Грати' : 'Виконати' ?></a>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>

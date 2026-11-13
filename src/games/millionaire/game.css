@@ -1,0 +1,139 @@
+/* Гра «Мільйонер» */
+.game-millionaire {
+    --mi-bg: radial-gradient(ellipse at top, #2a2f8f 0%, #0b0d3b 70%);
+    --mi-gold: #f6c343;
+    --mi-line: #5a67d8;
+}
+
+.mi-intro { background: var(--mi-bg); color: #fff; border: none; }
+.mi-intro p, .mi-intro ul { color: #d6dcff; }
+
+.mi-layout {
+    display: grid;
+    grid-template-columns: 1fr 230px;
+    gap: 1rem;
+    align-items: start;
+}
+
+.mi-main {
+    background: var(--mi-bg);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-lg);
+    min-height: 360px;
+}
+
+.mi-hints { display: flex; gap: .6rem; margin-bottom: 1rem; min-height: 2.6rem; }
+.mi-hint {
+    border: 2px solid var(--mi-line);
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    border-radius: 999px;
+    padding: .45rem 1.1rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background var(--transition);
+}
+.mi-hint:hover:not(:disabled) { background: rgba(255,255,255,.2); }
+.mi-hint:disabled { opacity: .45; cursor: default; }
+.mi-hint.used { text-decoration: line-through; text-decoration-color: #fc8181; text-decoration-thickness: 3px; }
+
+.mi-qhead {
+    display: flex;
+    justify-content: space-between;
+    color: #a3bffa;
+    font-size: .95rem;
+    margin-bottom: .5rem;
+}
+.mi-for { color: var(--mi-gold); font-weight: 700; }
+
+.game-millionaire .ge-question-text {
+    background: linear-gradient(90deg, transparent, rgba(90,103,216,.35), transparent);
+    border-top: 2px solid var(--mi-line);
+    border-bottom: 2px solid var(--mi-line);
+    padding: 1rem;
+    text-align: center;
+    color: #fff;
+}
+.game-millionaire .multi-hint { color: #c3dafe; text-align: center; }
+
+.game-millionaire .ge-answer {
+    background: #10145a;
+    color: #fff;
+    border-color: var(--mi-line);
+    border-radius: 999px;
+}
+.game-millionaire .ge-answer:hover:not(:disabled) { border-color: var(--mi-gold); }
+.game-millionaire .ge-letter { background: transparent; color: var(--mi-gold); }
+.game-millionaire .ge-answer.chosen { background: #c05621; border-color: #f6ad55; }
+.game-millionaire .ge-answer.correct { background: #2f855a; border-color: #9ae6b4; animation: mi-blink .4s 3; }
+.game-millionaire .ge-answer.wrong { background: #9b2c2c; border-color: #feb2b2; }
+.game-millionaire .ge-answer.voted::before { background: rgba(246,195,67,.3); }
+.game-millionaire .ge-vote { color: var(--mi-gold); }
+.game-millionaire .ge-confirm { display: block; margin: 1rem auto 0; }
+
+.mi-feedback:not(:empty) {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+}
+.mi-wait { color: #fbd38d; margin: 0; }
+.mi-good, .mi-bad { flex: 1 1 260px; padding: .65rem 1rem; border-radius: var(--radius-sm); }
+.mi-good { background: rgba(72,187,120,.25); border-left: 4px solid #68d391; }
+.mi-bad { background: rgba(245,101,101,.25); border-left: 4px solid #fc8181; }
+
+/* Драбина */
+.mi-side {
+    background: #0b0d3b;
+    color: #c3dafe;
+    border-radius: var(--radius);
+    padding: .75rem;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 1rem;
+}
+.mi-bank {
+    text-align: center;
+    padding: .4rem 0 .7rem;
+    border-bottom: 1px solid var(--mi-line);
+    margin-bottom: .5rem;
+}
+.mi-bank small { display: block; color: #a3bffa; }
+.mi-bank strong { font-size: 1.4rem; color: var(--mi-gold); }
+
+.mi-ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 420px;
+    overflow-y: auto;
+    position: relative;
+}
+.mi-rung {
+    display: flex;
+    justify-content: space-between;
+    padding: .2rem .6rem;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+    font-size: .92rem;
+}
+.mi-rung-n { opacity: .7; }
+.mi-rung.milestone { color: #fff; font-weight: 700; }
+.mi-rung.reached { color: #68d391; }
+.mi-rung.next { background: #c05621; color: #fff; font-weight: 700; }
+.mi-rung.flash { animation: mi-blink .4s 3; }
+
+@keyframes mi-blink {
+    50% { filter: brightness(1.6); }
+}
+
+@media (max-width: 760px) {
+    .mi-layout { grid-template-columns: 1fr; }
+    .mi-side { position: static; order: -1; }
+    .mi-ladder { max-height: 120px; }
+}
