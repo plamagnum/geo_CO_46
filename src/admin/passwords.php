@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $configured = vaultIsConfigured($pdo);
-$stats = $pdo->query('SELECT COUNT(*) AS total, SUM(password_enc IS NOT NULL) AS stored FROM users WHERE role = "user"')->fetch();
+$stats = $pdo->query('SELECT COUNT(*) AS total, SUM(password_enc IS NOT NULL) AS stored_count FROM users WHERE role = "user"')->fetch();
 $classes = $pdo->query('SELECT id, name FROM classes ORDER BY id')->fetchAll();
 
 $pageTitle = 'Сейф паролів';
@@ -148,7 +148,7 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 <?php else: ?>
     <p class="text-muted">
-        Збережено паролів: <strong><?= (int)$stats['stored'] ?></strong> з <?= (int)$stats['total'] ?> учнів.
+        Збережено паролів: <strong><?= (int)$stats['stored_count'] ?></strong> з <?= (int)$stats['total'] ?> учнів.
         Решта з'явиться після їхнього входу або скидання пароля.
     </p>
 
