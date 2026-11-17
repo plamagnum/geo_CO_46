@@ -17,6 +17,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # DNS для парсера; змініть, якщо 1.1.1.1/8.8.8.8 недоступні з вашого сервера
+    dns:
+      - ${PARSER_DNS1:-1.1.1.1}
+      - ${PARSER_DNS2:-8.8.8.8}
     volumes:
       - ./src:/var/www/html
       - ./parsers:/var/www/parsers
