@@ -404,6 +404,9 @@ python parsers/vseosvita_parser.py --file page.html --topic-id 5 --no-images
 
 ---
 
+**naurok.com.ua:** `python parsers/naurok_parser.py URL --topic-id 5` (є й у формі «Парсер»). Публічна
+сторінка не містить правильних відповідей — позначте їх в адмінці після імпорту.
+
 ### Форма парсера в адмінці
 
 «Адмін → 🕷 Парсер»: вставте посилання, оберіть парсер (Python vseosvita / Python generic / PHP generic),

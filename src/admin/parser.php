@@ -19,6 +19,8 @@ const PARSER_MAX_URLS = 10;
 const PARSERS = [
     'py_vseosvita' => ['Python · vseosvita.ua', 'python', 'vseosvita_parser.py', true,
         'Тести з vseosvita.ua. Правильних відповідей на сторінці немає — їх позначають в адмінці після імпорту.'],
+    'py_naurok'    => ['Python · naurok.com.ua', 'python', 'naurok_parser.py', true,
+        'Тести з naurok.com.ua. Правильних відповідей на публічній сторінці немає — їх позначають в адмінці після імпорту.'],
     'py_generic'   => ['Python · універсальний (селектори з config.py)', 'python', 'parser.py', false,
         'Будь-яка сторінка; CSS-селектори задаються у parsers/config.py. Скачує картинки.'],
     'php_generic'  => ['PHP · універсальний (селектори з config.php)', 'php', 'parser.php', false,
