@@ -74,9 +74,18 @@ function validateParserUrl(string $url): ?string {
     if (!$p || empty($p['host']) || !in_array(strtolower($p['scheme'] ?? ''), ['http', 'https'], true)) {
         return 'Некоректне посилання (потрібен http:// або https://): ' . $url;
     }
-    $ips = filter_var($p['host'], FILTER_VALIDATE_IP) ? [$p['host']] : (gethostbynamel($p['host']) ?: []);
+    $host = trim($p['host'], '[]');
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        $ips = [$host];
+    } else {
+        $ips = gethostbynamel($host) ?: [];
+        foreach (@dns_get_record($host, DNS_A | DNS_AAAA) ?: [] as $r) {
+            $ips[] = $r['ip'] ?? $r['ipv6'] ?? null;
+        }
+        $ips = array_values(array_filter(array_unique($ips)));
+    }
     if (!$ips) {
-        return 'Не вдалося визначити адресу сайту: ' . $p['host'];
+        return 'Не вдалося визначити адресу сайту: ' . $p['host'] . ' (перевірте DNS/доступ в інтернет з сервера: dig ' . $p['host'] . ')';
     }
     foreach ($ips as $ip) {
         if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
