@@ -19,6 +19,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./src:/var/www/html
+      - ./parsers:/var/www/parsers
     depends_on:
       mysql:
         condition: service_healthy
@@ -31,6 +32,7 @@ services:
       - DB_PASS=school_password
       - APP_TIMEZONE=Europe/Kyiv
       - TZ=Europe/Kyiv
+      - PARSERS_DIR=/var/www/parsers
 
   mysql:
     image: mysql:8.0

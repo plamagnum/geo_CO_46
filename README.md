@@ -404,6 +404,16 @@ python parsers/vseosvita_parser.py --file page.html --topic-id 5 --no-images
 
 ---
 
+### Форма парсера в адмінці
+
+«Адмін → 🕷 Парсер»: вставте посилання, оберіть парсер (Python vseosvita / Python generic / PHP generic),
+ім'я JSON, клас → предмет → тему (підставляються `--topic-id/--class-id/--subject-id`). Файл зберігається
+в `parsers/output/`, його можна імпортувати, завантажити чи видалити. Внутрішні адреси блокуються.
+
+Вимоги на власному сервері: `python3` + `requests` + `beautifulsoup4`; `PARSERS_DIR` (шлях до `parsers/`),
+за потреби `PYTHON_BIN` / `PHP_CLI_BIN`; права запису для php-fpm на `parsers/output`;
+`fastcgi_read_timeout 180s`. Селектори generic-парсерів — у `parsers/config.py` / `config.php`.
+
 ### Імпорт результату парсингу
 
 Після парсингу скористайтесь отриманим JSON файлом для імпорту:

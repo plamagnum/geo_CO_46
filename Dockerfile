@@ -11,6 +11,10 @@ RUN apk add --no-cache \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd mbstring
 
+# Python для парсерів, що запускаються з адмін-панелі
+RUN apk add --no-cache python3 py3-requests py3-beautifulsoup4 \
+    && mkdir -p /var/www/parsers/output && chmod -R 777 /var/www/parsers/output
+
 # Налаштування PHP
 RUN echo "upload_max_filesize = 32M" >> /usr/local/etc/php/conf.d/custom.ini \
     && echo "post_max_size = 32M" >> /usr/local/etc/php/conf.d/custom.ini \

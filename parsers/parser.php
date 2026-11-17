@@ -4,6 +4,7 @@
  *
  * Використання:
  *   php parsers/parser.php
+ *   php parsers/parser.php --url=URL --topic-id=5 --class-id=2 --subject-id=1 --output=result.json
  *
  * Результат зберігається у JSON файл у директорії output/
  * Файл можна використати для імпорту через API або адмін-панель
@@ -237,5 +238,14 @@ class HtmlQuestionParser {
 // =============================================
 // Точка входу
 // =============================================
+// Параметри командного рядка перевизначають config.php:
+//   php parser.php --url=URL --topic-id=5 --class-id=2 --subject-id=1 --output=result.json
+$opts = getopt('', ['url:', 'topic-id:', 'class-id:', 'subject-id:', 'output:']);
+if (isset($opts['url']))        $config['url'] = (string)$opts['url'];
+if (isset($opts['topic-id']))   $config['topic_id'] = (int)$opts['topic-id'];
+if (isset($opts['class-id']))   $config['class_id'] = (int)$opts['class-id'];
+if (isset($opts['subject-id'])) $config['subject_id'] = (int)$opts['subject-id'];
+if (isset($opts['output']))     $config['output_file'] = basename((string)$opts['output']);
+
 $parser = new HtmlQuestionParser($config);
 $parser->run();

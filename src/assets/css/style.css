@@ -1357,3 +1357,19 @@ details.admin-form-card[open] > summary { margin-bottom: 12px; }
     margin-top: 8px;
 }
 .topic-games .btn { flex: 1 1 auto; justify-content: center; }
+
+/* Парсер в адмін-панелі */
+.parser-log {
+    background: #1a202c;
+    color: #e2e8f0;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: .85rem;
+    margin-bottom: 12px;
+}
+.parser-actions .import-result:empty { display: none; }
+.parser-actions .import-result { margin-top: 6px; }

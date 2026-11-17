@@ -11,6 +11,7 @@ Python парсер для витягування запитань з HTML-ст�
 
 Використання:
     python parsers/parser.py
+    python parsers/parser.py --url URL --topic-id 5 --class-id 2 --subject-id 1 -o result.json
 
 Результат зберігається у JSON файл у директорії output/
 Файл можна використати для імпорту через API або адмін-панель.
@@ -286,5 +287,28 @@ class HtmlQuestionParser:
 # Точка входу
 # =============================================
 if __name__ == '__main__':
+    import argparse
+
+    ap = argparse.ArgumentParser(description='Парсер HTML-сторінок із запитаннями (налаштування — config.py)')
+    ap.add_argument('--url', help='Адреса сторінки (замість URL з config.py)')
+    ap.add_argument('--topic-id', type=int)
+    ap.add_argument('--class-id', type=int)
+    ap.add_argument('--subject-id', type=int)
+    ap.add_argument('--no-images', action='store_true', help='Не скачувати картинки')
+    ap.add_argument('-o', '--output', help="Ім'я файлу в parsers/output/")
+    args = ap.parse_args()
+
     parser = HtmlQuestionParser()
+    if args.url:
+        parser.url = parser.base_url = args.url
+    if args.topic_id is not None:
+        parser.topic_id = args.topic_id
+    if args.class_id is not None:
+        parser.class_id = args.class_id
+    if args.subject_id is not None:
+        parser.subject_id = args.subject_id
+    if args.no_images:
+        parser.download_images = False
+    if args.output:
+        parser.output_file = os.path.basename(args.output)
     parser.run()
