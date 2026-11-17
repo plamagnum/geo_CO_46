@@ -417,6 +417,9 @@ python parsers/vseosvita_parser.py --file page.html --topic-id 5 --no-images
 за потреби `PYTHON_BIN` / `PHP_CLI_BIN`; права запису для php-fpm на `parsers/output`;
 `fastcgi_read_timeout 180s`. Селектори generic-парсерів — у `parsers/config.py` / `config.php`.
 
+**Редактор JSON:** кнопка «Редагувати» біля файлу відкриває редактор із підсвіткою синтаксису, перевіркою
+помилок, форматуванням і збереженням (Ctrl+S). Зберігається лише коректний JSON з масивом `questions`.
+
 ### Імпорт результату парсингу
 
 Після парсингу скористайтесь отриманим JSON файлом для імпорту:

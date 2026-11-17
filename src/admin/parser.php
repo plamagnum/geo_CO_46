@@ -14,6 +14,7 @@ requireAdmin();
 
 const PARSER_TIMEOUT = 150;   // секунд
 const PARSER_MAX_URLS = 10;
+const JSON_EDIT_MAX = 5 * 1024 * 1024;   // байт
 
 /** Дозволені парсери: ключ => [назва, мова, файл, чи приймає кілька посилань, опис] */
 const PARSERS = [
@@ -173,6 +174,33 @@ if (isset($_GET['download']) && $outDir) {
     exit('Файл не знайдено');
 }
 
+// Збереження відредагованого JSON (AJAX)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_file') {
+    header('Content-Type: application/json; charset=utf-8');
+    $name = basename((string)($_POST['file'] ?? ''));
+    $content = (string)($_POST['content'] ?? '');
+    $fail = function (string $msg, int $code = 400) {
+        http_response_code($code);
+        echo json_encode(['success' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
+        exit;
+    };
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) $fail('Помилка безпеки. Оновіть сторінку.', 403);
+    if (!$outDir || sanitizeJsonName($name) !== $name || !is_file($outDir . '/' . $name)) $fail('Файл не знайдено.', 404);
+    if (strlen($content) > JSON_EDIT_MAX) $fail('Файл завеликий для редактора.');
+    $data = json_decode($content, true);
+    if (json_last_error() !== JSON_ERROR_NONE) $fail('Некоректний JSON: ' . json_last_error_msg());
+    if (!is_array($data) || !isset($data['questions']) || !is_array($data['questions'])) {
+        $fail('У JSON має бути масив "questions".');
+    }
+    $tmp = $outDir . '/.' . $name . '.tmp';
+    if (file_put_contents($tmp, $content) === false || !rename($tmp, $outDir . '/' . $name)) {
+        @unlink($tmp);
+        $fail('Не вдалося записати файл (права на parsers/output).', 500);
+    }
+    echo json_encode(['success' => true, 'questions' => count($data['questions'])], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $classes  = $pdo->query('SELECT id, name FROM classes ORDER BY CAST(name AS UNSIGNED), name')->fetchAll();
 $subjects = $pdo->query('SELECT id, name FROM subjects ORDER BY name')->fetchAll();
 $topics   = $pdo->query('SELECT id, name, class_id, subject_id FROM topics ORDER BY name')->fetchAll();
@@ -306,7 +334,41 @@ $topicNames = array_column($topics, 'name', 'id');
 
 $pageTitle = 'Парсер';
 require_once __DIR__ . '/../includes/header.php';
+
+// Редактор JSON
+$editName = isset($_GET['edit']) ? basename((string)$_GET['edit']) : '';
+if ($editName !== '') {
+    $editPath = $outDir ? $outDir . '/' . $editName : '';
+    $tooBig = $editPath && is_file($editPath) && filesize($editPath) > JSON_EDIT_MAX;
+    if (sanitizeJsonName($editName) !== $editName || !is_file($editPath) || $tooBig) {
+        $error = $tooBig ? 'Файл завеликий для редактора.' : 'Файл не знайдено.';
+        $editName = '';
+    }
+}
 ?>
+
+<?php if ($editName !== ''): ?>
+<div class="admin-header">
+    <h1 class="page-title">Редактор: <?= e($editName) ?></h1>
+    <a href="/admin/parser.php" class="btn btn-outline">← До списку файлів</a>
+</div>
+<div class="je-toolbar">
+    <button type="button" class="btn btn-primary" id="jeSave">💾 Зберегти (Ctrl+S)</button>
+    <button type="button" class="btn btn-outline" id="jeFormat">Форматувати</button>
+    <button type="button" class="btn btn-outline" id="jeMinify">Стиснути</button>
+    <span id="jeStatus" class="je-status"></span>
+</div>
+<div class="je" id="je">
+    <div class="je-gutter" id="jeGutter" aria-hidden="true"></div>
+    <div class="je-body">
+        <pre class="je-highlight" id="jeHighlight" aria-hidden="true"></pre>
+        <textarea class="je-input" id="jeInput" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off"><?= e((string)file_get_contents($editPath)) ?></textarea>
+    </div>
+</div>
+<p class="form-hint">Tab — відступ. Підсвічується синтаксис, помилки JSON показуються одразу. Запитання з <code>is_correct: true</code> у відповідях потрапляють у тест.</p>
+<script>window.JE_CONFIG = { file: <?= json_encode($editName) ?>, csrf: <?= json_encode($csrfToken) ?> };</script>
+<script src="/assets/js/json-editor.js?v=1"></script>
+<?php require_once __DIR__ . '/../includes/footer.php'; exit; endif; ?>
 
 <div class="admin-header">
     <h1 class="page-title">Парсер запитань</h1>
@@ -424,6 +486,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <td><?= date('d.m.Y H:i', $f['time']) ?></td>
                     <td class="parser-actions">
                         <button type="button" class="btn btn-sm btn-primary js-import" data-file="<?= e($f['name']) ?>">Імпортувати</button>
+                        <a class="btn btn-sm btn-outline" href="?edit=<?= e(rawurlencode($f['name'])) ?>">Редагувати</a>
                         <a class="btn btn-sm btn-outline" href="?download=<?= e(rawurlencode($f['name'])) ?>&amp;save=1">Завантажити</a>
                         <form method="POST" action="" onsubmit="return confirm('Видалити файл?');" style="display:inline">
                             <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">

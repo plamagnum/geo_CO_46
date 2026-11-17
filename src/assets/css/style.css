@@ -1373,3 +1373,59 @@ details.admin-form-card[open] > summary { margin-bottom: 12px; }
 }
 .parser-actions .import-result:empty { display: none; }
 .parser-actions .import-result { margin-top: 6px; }
+
+/* Редактор JSON */
+.je-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.je-status { font-size: .9rem; margin-left: 6px; }
+.je-status.ok { color: #16a34a; }
+.je-status.err { color: #dc2626; }
+.je {
+    display: flex;
+    height: 70vh;
+    min-height: 320px;
+    background: #0f172a;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.je-gutter {
+    flex: 0 0 auto;
+    min-width: 46px;
+    padding: 10px 8px 10px 0;
+    text-align: right;
+    color: #64748b;
+    background: #0b1220;
+    overflow: hidden;
+    white-space: pre;
+    user-select: none;
+}
+.je-gutter .je-errline { color: #fff; background: #dc2626; display: block; }
+.je-body { position: relative; flex: 1; min-width: 0; }
+.je-highlight, .je-input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 10px 12px;
+    border: 0;
+    font: inherit;
+    letter-spacing: 0;
+    tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+    box-sizing: border-box;
+}
+.je-highlight { color: #e2e8f0; pointer-events: none; overflow: hidden; }
+.je-input {
+    background: transparent;
+    color: transparent;
+    caret-color: #fff;
+    resize: none;
+    outline: none;
+}
+.je-input::selection { background: rgba(99, 102, 241, .45); color: transparent; }
+.je-key { color: #7dd3fc; }
+.je-str { color: #86efac; }
+.je-num { color: #fdba74; }
+.je-bool { color: #c4b5fd; }
+.je-null { color: #f9a8d4; }
+.je-punct { color: #94a3b8; }
