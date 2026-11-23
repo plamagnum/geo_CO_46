@@ -1,0 +1,153 @@
+/* =============================================
+   Спільні стилі ігор (рушій)
+   ============================================= */
+.game-root {
+    position: relative;
+    margin-top: 1rem;
+}
+
+.ge-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+}
+
+.ge-intro {
+    text-align: center;
+    max-width: 680px;
+    margin: 0 auto;
+}
+.ge-intro .ge-intro-icon { font-size: 4rem; line-height: 1; }
+.ge-intro p { color: var(--text-secondary); line-height: 1.6; }
+.ge-intro ul { text-align: left; display: inline-block; color: var(--text-secondary); line-height: 1.7; }
+
+/* Запитання */
+.ge-question-text {
+    font-size: 1.2rem;
+    margin: 0 0 1rem;
+    line-height: 1.4;
+}
+.ge-q-image { max-width: 100%; max-height: 320px; border-radius: var(--radius-sm); margin-bottom: 1rem; display: block; }
+.ge-a-image { display: block; max-width: 100%; max-height: 140px; margin-top: .4rem; border-radius: 6px; }
+
+.ge-answers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: .75rem;
+}
+
+.ge-answer {
+    --vote: 0%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    text-align: left;
+    width: 100%;
+    padding: .85rem 1rem;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font: inherit;
+    cursor: pointer;
+    transition: transform var(--transition), border-color var(--transition), background var(--transition), opacity .3s;
+    overflow: hidden;
+}
+.ge-answer:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.ge-answer.chosen { border-color: var(--warning); background: var(--warning-bg); }
+.ge-answer.correct { border-color: var(--success); background: var(--success-bg); }
+.ge-answer.wrong { border-color: var(--danger); background: var(--danger-bg); }
+.ge-answer.hidden { opacity: .15; pointer-events: none; }
+.locked .ge-answer { cursor: default; transform: none; }
+.ge-answer > * { position: relative; z-index: 1; }
+
+.ge-letter {
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    background: var(--accent-light);
+    color: var(--accent);
+}
+.ge-answer-text { flex: 1; }
+
+/* «Допомога залу» — смужка за відповіддю */
+.ge-answer.voted::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--vote);
+    background: rgba(66, 153, 225, .18);
+    transition: width .8s ease;
+}
+.ge-vote { font-weight: 700; color: var(--info); }
+
+.ge-confirm { margin-top: 1rem; }
+
+/* Повідомлення */
+.ge-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%);
+    z-index: 1000;
+    padding: .75rem 1.25rem;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    background: var(--danger);
+    box-shadow: var(--shadow-lg);
+    transition: opacity .4s;
+}
+.ge-toast.info { background: var(--info); }
+.ge-toast.hide { opacity: 0; }
+
+/* Фінальний екран */
+.ge-summary {
+    text-align: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 2rem 1.5rem;
+}
+.ge-summary-icon { font-size: 4rem; line-height: 1; animation: ge-pop .6s ease; }
+.ge-summary-text { color: var(--text-secondary); max-width: 560px; margin: 0 auto 1rem; }
+.ge-score { margin: 1rem auto; flex-direction: column; }
+.ge-score small { font-size: .85rem; }
+.ge-score.good { border-color: var(--success); }
+.ge-score.bad { border-color: var(--warning); }
+
+.ge-review { text-align: left; margin-top: 1.5rem; }
+.ge-review-item {
+    border-left: 4px solid var(--border);
+    padding: .6rem .9rem;
+    margin-bottom: .6rem;
+    background: var(--bg-hover);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.ge-review-item.ok { border-left-color: var(--success); }
+.ge-review-item.bad { border-left-color: var(--danger); }
+.ge-review-q { font-weight: 600; margin-bottom: .25rem; }
+.ge-review-a { color: var(--text-secondary); font-size: .95rem; }
+
+@keyframes ge-pop {
+    0% { transform: scale(.3); opacity: 0; }
+    70% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ge-shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-root *, .ge-summary-icon { animation: none !important; transition: none !important; }
+}
