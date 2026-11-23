@@ -5,6 +5,7 @@
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/password_vault.php';
+require_once __DIR__ . '/schools.php';
 
 // Тривалість сесії (30 хвилин)
 define('SESSION_LIFETIME', 1800);
@@ -153,6 +154,7 @@ function registerUser(array $data): array {
     $email     = strtolower(trim($data['email'] ?? ''));
     $password  = $data['password'] ?? '';
     $classId   = (int)($data['class_id'] ?? 0);
+    $schoolId  = (int)($data['school_id'] ?? 0);
 
     // Валідація
     if (empty($firstName) || empty($lastName)) {
@@ -170,6 +172,17 @@ function registerUser(array $data): array {
 
     $pdo = getDB();
 
+    // Якщо школи вже створені, вибір школи обов'язковий
+    if (listSchools($pdo)) {
+        $stmt = $pdo->prepare('SELECT id FROM schools WHERE id = ?');
+        $stmt->execute([$schoolId]);
+        if (!$stmt->fetch()) {
+            return ['success' => false, 'error' => 'Оберіть школу зі списку'];
+        }
+    } else {
+        $schoolId = null;
+    }
+
     // Перевірка унікальності email
     $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
     $stmt->execute([$email]);
@@ -181,8 +194,8 @@ function registerUser(array $data): array {
     $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
     // Вставка нового користувача
-    $stmt = $pdo->prepare('INSERT INTO users (first_name, last_name, email, password_hash, class_id, role) VALUES (?, ?, ?, ?, ?, "user")');
-    $stmt->execute([$firstName, $lastName, $email, $passwordHash, $classId]);
+    $stmt = $pdo->prepare('INSERT INTO users (first_name, last_name, email, password_hash, class_id, school_id, role) VALUES (?, ?, ?, ?, ?, ?, "user")');
+    $stmt->execute([$firstName, $lastName, $email, $passwordHash, $classId, $schoolId]);
     vaultStorePassword($pdo, (int)$pdo->lastInsertId(), $password);
 
     return ['success' => true];

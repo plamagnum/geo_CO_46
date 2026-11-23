@@ -93,6 +93,10 @@ require_once __DIR__ . '/../includes/header.php';
             <span class="action-icon">📚</span>
             <span>Предмети</span>
         </a>
+        <a href="/admin/schools.php" class="action-card">
+            <span class="action-icon">🏛</span>
+            <span>Школи</span>
+        </a>
         <a href="/admin/classes.php" class="action-card">
             <span class="action-icon">🏫</span>
             <span>Класи</span>

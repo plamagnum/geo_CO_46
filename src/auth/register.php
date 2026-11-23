@@ -20,6 +20,7 @@ $csrfToken = generateCsrfToken();
 // Завантаження класів
 $pdo = getDB();
 $classes = $pdo->query('SELECT * FROM classes ORDER BY id')->fetchAll();
+$schools = listSchools($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Перевірка CSRF токену
@@ -82,6 +83,21 @@ require_once __DIR__ . '/../includes/header.php';
                     >
                 </div>
             </div>
+
+            <?php if ($schools): ?>
+            <div class="form-group">
+                <label for="school_id" class="form-label">Школа</label>
+                <select id="school_id" name="school_id" class="form-select" required>
+                    <option value="">Оберіть школу</option>
+                    <?php foreach ($schools as $school): ?>
+                        <option value="<?= (int)$school['id'] ?>"
+                            <?= (isset($_POST['school_id']) && $_POST['school_id'] == $school['id']) ? 'selected' : '' ?>>
+                            <?= e($school['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <?php endif; ?>
 
             <div class="form-group">
                 <label for="class_id" class="form-label">Клас</label>

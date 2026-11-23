@@ -9,6 +9,7 @@ require_once __DIR__ . '/../config/database.php';
 requireAdmin();
 
 $pdo        = getDB();
+ensureSchoolsSchema($pdo);
 $csrfToken  = generateCsrfToken();
 $message    = '';
 $error      = '';
@@ -47,6 +48,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password' => $plain,
                 ];
             }
+        } elseif ($action === 'change_school' && $userId > 0) {
+            $schoolId = (int)($_POST['school_id'] ?? 0);
+            $check = $pdo->prepare('SELECT id FROM schools WHERE id = ?');
+            $check->execute([$schoolId]);
+            if ($schoolId > 0 && !$check->fetch()) {
+                $error = 'Школу не знайдено.';
+            } else {
+                $pdo->prepare('UPDATE users SET school_id = ? WHERE id = ?')->execute([$schoolId ?: null, $userId]);
+                $message = 'Школу учня змінено.';
+            }
         } elseif ($action === 'change_role' && $userId > 0) {
             $newRole = $_POST['role'] ?? 'user';
             if (!in_array($newRole, ['user', 'admin'])) {
@@ -69,6 +80,8 @@ $users = $pdo->query('
     LEFT JOIN classes c ON u.class_id = c.id
     ORDER BY u.role DESC, u.created_at DESC
 ')->fetchAll();
+
+$schools = listSchools($pdo);
 
 $pageTitle = 'Управління користувачами';
 require_once __DIR__ . '/../includes/header.php';
@@ -102,6 +115,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <th>ID</th>
                 <th>Ім'я</th>
                 <th>Email</th>
+                <th>Школа</th>
                 <th>Клас</th>
                 <th>Роль</th>
                 <th>Реєстрація</th>
@@ -114,6 +128,21 @@ require_once __DIR__ . '/../includes/header.php';
                     <td><?= (int)$user['id'] ?></td>
                     <td><?= e($user['first_name'] . ' ' . $user['last_name']) ?></td>
                     <td><?= e($user['email']) ?></td>
+                    <td>
+                        <?php if ($user['role'] === 'user'): ?>
+                            <form method="POST" action="" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                                <input type="hidden" name="action" value="change_school">
+                                <input type="hidden" name="user_id" value="<?= (int)$user['id'] ?>">
+                                <select name="school_id" class="form-select-sm" onchange="this.form.submit()" title="Змінити школу">
+                                    <option value="0">— без школи —</option>
+                                    <?php foreach ($schools as $sc): ?>
+                                        <option value="<?= (int)$sc['id'] ?>" <?= (int)$user['school_id'] === (int)$sc['id'] ? 'selected' : '' ?>><?= e($sc['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </form>
+                        <?php else: ?>—<?php endif; ?>
+                    </td>
                     <td><?= e($user['class_name'] ?? '—') ?></td>
                     <td>
                         <span class="role-badge role-<?= e($user['role']) ?>">

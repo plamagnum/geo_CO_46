@@ -20,6 +20,13 @@ CREATE TABLE IF NOT EXISTS `subjects` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Таблиця шкіл
+CREATE TABLE IF NOT EXISTS `schools` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(150) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Таблиця користувачів
 CREATE TABLE IF NOT EXISTS `users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -29,9 +36,12 @@ CREATE TABLE IF NOT EXISTS `users` (
     `password_hash` VARCHAR(255) NOT NULL,
     `password_enc` VARBINARY(255) NULL DEFAULT NULL,  -- зашифрована копія для сейфа паролів
     `class_id` INT NULL,
+    `school_id` INT NULL,
     `role` ENUM('user','admin') DEFAULT 'user',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE SET NULL
+    INDEX `idx_users_school` (`school_id`),
+    FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`school_id`) REFERENCES `schools`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Сейф паролів: публічний ключ і секретний ключ, зашифрований майстер-фразою

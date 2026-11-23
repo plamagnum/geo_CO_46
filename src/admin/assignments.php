@@ -10,6 +10,7 @@ require_once __DIR__ . '/../config/database.php';
 requireAdmin();
 
 $pdo = getDB();
+ensureSchoolsSchema($pdo);
 ensureAssignmentTables($pdo);
 $csrfToken = generateCsrfToken();
 $message = '';
@@ -27,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $game    = (string)($_POST['game'] ?? '');
             $target  = $_POST['target'] ?? '';
             $classId = (int)($_POST['class_id'] ?? 0);
+            $schoolId = (int)($_POST['school_id'] ?? 0);
             $userIds = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['user_ids'] ?? [])))));
 
             $readyStmt = $pdo->prepare('
@@ -44,8 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $recipients = [];
                 if ($target === 'class' && $classId > 0) {
-                    $stmt = $pdo->prepare('SELECT id FROM users WHERE role = "user" AND class_id = ?');
-                    $stmt->execute([$classId]);
+                    $sql = 'SELECT id FROM users WHERE role = "user" AND class_id = ?';
+                    $args = [$classId];
+                    if ($schoolId > 0) {
+                        $sql .= ' AND school_id = ?';
+                        $args[] = $schoolId;
+                    }
+                    $stmt = $pdo->prepare($sql);
+                    $stmt->execute($args);
                     $recipients = $stmt->fetchAll(PDO::FETCH_COLUMN);
                 } elseif ($target === 'students' && !empty($userIds)) {
                     $in = implode(',', array_fill(0, count($userIds), '?'));
@@ -85,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $classes = $pdo->query('SELECT * FROM classes ORDER BY id')->fetchAll();
+$schools = listSchools($pdo);
 $topics  = $pdo->query('
     SELECT t.id, t.name, s.name AS subject_name, c.name AS class_name,
            (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id
@@ -95,10 +104,10 @@ $topics  = $pdo->query('
     ORDER BY t.class_id, s.name, t.name
 ')->fetchAll();
 $students = $pdo->query('
-    SELECT u.id, u.first_name, u.last_name, c.name AS class_name
+    SELECT u.id, u.first_name, u.last_name, u.class_id, u.school_id, c.name AS class_name
     FROM users u LEFT JOIN classes c ON u.class_id = c.id
     WHERE u.role = "user"
-    ORDER BY u.class_id, u.last_name, u.first_name
+    ORDER BY u.school_id, u.class_id, u.last_name, u.first_name
 ')->fetchAll();
 
 $assignments = $pdo->query('
@@ -175,9 +184,20 @@ require_once __DIR__ . '/../includes/header.php';
             </select>
         </div>
 
-        <div class="form-group" id="classBox">
+        <div class="form-group">
+            <label class="form-label" for="school_id">Школа</label>
+            <select name="school_id" id="school_id" class="form-select">
+                <option value="0">Усі школи</option>
+                <?php foreach ($schools as $sc): ?>
+                    <option value="<?= (int)$sc['id'] ?>"><?= e($sc['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div class="form-group">
             <label class="form-label" for="class_id">Клас</label>
             <select name="class_id" id="class_id" class="form-select">
+                <option value="0" id="anyClass" hidden>Усі класи</option>
                 <?php foreach ($classes as $c): ?>
                     <option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?></option>
                 <?php endforeach; ?>
@@ -185,10 +205,10 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <div class="form-group" id="studentsBox" style="display:none">
-            <label class="form-label" for="user_ids">Учні (Ctrl/Cmd — кілька)</label>
+            <label class="form-label" for="user_ids">Учні (Ctrl/Cmd — кілька; список відфільтровано за школою та класом)</label>
             <select name="user_ids[]" id="user_ids" class="form-select" multiple size="10">
                 <?php foreach ($students as $u): ?>
-                    <option value="<?= (int)$u['id'] ?>">
+                    <option value="<?= (int)$u['id'] ?>" data-school="<?= (int)$u['school_id'] ?>" data-class="<?= (int)$u['class_id'] ?>">
                         <?= e($u['last_name'] . ' ' . $u['first_name'] . ' (' . ($u['class_name'] ?? 'без класу') . ')') ?>
                     </option>
                 <?php endforeach; ?>
@@ -239,12 +259,31 @@ require_once __DIR__ . '/../includes/header.php';
 <script>
 (function () {
     var target = document.getElementById('target');
+    var school = document.getElementById('school_id');
+    var cls = document.getElementById('class_id');
+    var anyClass = document.getElementById('anyClass');
+    var students = document.getElementById('user_ids');
+    function filterStudents() {
+        Array.prototype.forEach.call(students.options, function (o) {
+            var ok = (school.value === '0' || o.dataset.school === school.value)
+                  && (cls.value === '0' || o.dataset.class === cls.value);
+            o.hidden = !ok;
+            o.disabled = !ok;
+            if (!ok) o.selected = false;
+        });
+    }
     function sync() {
         var byClass = target.value === 'class';
-        document.getElementById('classBox').style.display = byClass ? '' : 'none';
         document.getElementById('studentsBox').style.display = byClass ? 'none' : '';
+        // «Усі класи» має сенс лише для вибору окремих учнів
+        anyClass.hidden = byClass;
+        anyClass.disabled = byClass;
+        if (byClass && cls.value === '0') cls.selectedIndex = 1;
+        filterStudents();
     }
     target.addEventListener('change', sync);
+    school.addEventListener('change', filterStudents);
+    cls.addEventListener('change', filterStudents);
     sync();
 
     var game = document.getElementById('game');
