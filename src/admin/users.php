@@ -48,6 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'password' => $plain,
                 ];
             }
+        } elseif ($action === 'rename' && $userId > 0) {
+            $fn = trim((string)($_POST['first_name'] ?? ''));
+            $ln = trim((string)($_POST['last_name'] ?? ''));
+            if ($fn === '' || $ln === '' || mb_strlen($fn) > 100 || mb_strlen($ln) > 100) {
+                $error = "Вкажіть прізвище та ім'я (до 100 символів).";
+            } else {
+                $pdo->prepare('UPDATE users SET first_name = ?, last_name = ? WHERE id = ?')->execute([$fn, $ln, $userId]);
+                $message = "Прізвище та ім'я змінено.";
+            }
         } elseif ($action === 'change_school' && $userId > 0) {
             $schoolId = (int)($_POST['school_id'] ?? 0);
             $check = $pdo->prepare('SELECT id FROM schools WHERE id = ?');
@@ -126,7 +135,20 @@ require_once __DIR__ . '/../includes/header.php';
             <?php foreach ($users as $user): ?>
                 <tr <?= $user['id'] == $_SESSION['user_id'] ? 'class="current-user"' : '' ?>>
                     <td><?= (int)$user['id'] ?></td>
-                    <td><?= e($user['first_name'] . ' ' . $user['last_name']) ?></td>
+                    <td>
+                        <?= e($user['first_name'] . ' ' . $user['last_name']) ?>
+                        <form method="POST" action="" style="display:inline" onsubmit="
+                            var l = prompt('Прізвище:', this.last_name.value); if (l === null) return false;
+                            var f = prompt('Ім\'я:', this.first_name.value); if (f === null) return false;
+                            this.last_name.value = l; this.first_name.value = f; return true;">
+                            <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
+                            <input type="hidden" name="action" value="rename">
+                            <input type="hidden" name="user_id" value="<?= (int)$user['id'] ?>">
+                            <input type="hidden" name="first_name" value="<?= e($user['first_name']) ?>">
+                            <input type="hidden" name="last_name" value="<?= e($user['last_name']) ?>">
+                            <button type="submit" class="btn btn-outline btn-sm" title="Редагувати прізвище та ім'я">✏️</button>
+                        </form>
+                    </td>
                     <td><?= e($user['email']) ?></td>
                     <td>
                         <?php if ($user['role'] === 'user'): ?>
