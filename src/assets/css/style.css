@@ -961,7 +961,9 @@ img { max-width: 100%; display: block; }
 .results-table tr:hover td,
 .admin-table tr:hover td { background: var(--bg-hover); }
 .admin-table tr.current-user td { background: var(--accent-light); }
-.actions-cell { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.actions-cell { white-space: normal; min-width: 210px; }
+.actions-cell > form { display: inline-block; margin: 0 6px 6px 0; vertical-align: middle; }
+.admin-table .form-select-sm { max-width: 170px; }
 
 /* =============================================
    Пагінація
