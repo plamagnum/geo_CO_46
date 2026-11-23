@@ -10,6 +10,19 @@ require_once __DIR__ . '/../config/database.php';
 requireAdmin();
 
 $pdo = getDB();
+
+function cancelForm(string $csrf, int $aid, string $scope, string $label, array $extra = [], string $confirm = 'Скасувати завдання?'): string {
+    $h = '<form method="POST" action="?view=' . $aid . '" style="display:inline" onsubmit="return confirm(\'' . e($confirm) . '\');">'
+       . '<input type="hidden" name="csrf_token" value="' . e($csrf) . '">'
+       . '<input type="hidden" name="action" value="cancel">'
+       . '<input type="hidden" name="assignment_id" value="' . $aid . '">'
+       . '<input type="hidden" name="scope" value="' . e($scope) . '">';
+    foreach ($extra as $k => $v) {
+        $h .= '<input type="hidden" name="' . e($k) . '" value="' . (int)$v . '">';
+    }
+    return $h . '<button type="submit" class="btn btn-sm btn-outline">' . e($label) . '</button></form>';
+}
+
 ensureSchoolsSchema($pdo);
 ensureAssignmentTables($pdo);
 $csrfToken = generateCsrfToken();
@@ -84,6 +97,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
+        } elseif ($action === 'cancel') {
+            $aid   = (int)($_POST['assignment_id'] ?? 0);
+            $scope = $_POST['scope'] ?? '';
+            $sid   = (int)($_POST['school_id'] ?? 0);
+            $cid   = (int)($_POST['class_id'] ?? 0);
+            $uid   = (int)($_POST['user_id'] ?? 0);
+            // Скасовуються лише невиконані; виконані результати зберігаються
+            $sql = 'DELETE ar FROM assignment_recipients ar JOIN users u ON u.id = ar.user_id
+                    WHERE ar.assignment_id = ? AND ar.result_id IS NULL';
+            $args = [$aid];
+            if ($scope === 'user' && $uid > 0) {
+                $sql .= ' AND u.id = ?'; $args[] = $uid;
+            } elseif ($scope === 'class' && $cid > 0) {
+                $sql .= ' AND u.class_id = ?'; $args[] = $cid;
+                $sql .= $sid > 0 ? ' AND u.school_id = ?' : ' AND u.school_id IS NULL';
+                if ($sid > 0) $args[] = $sid;
+            } elseif ($scope === 'school') {
+                $sql .= $sid > 0 ? ' AND u.school_id = ?' : ' AND u.school_id IS NULL';
+                if ($sid > 0) $args[] = $sid;
+            } elseif ($scope !== 'all') {
+                $sql = null;
+            }
+            if ($sql === null || $aid <= 0) {
+                $error = 'Некоректний запит.';
+            } else {
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($args);
+                $message = 'Завдання скасовано для невиконаних учнів: ' . $stmt->rowCount() . '.';
+                $left = $pdo->prepare('SELECT COUNT(*) FROM assignment_recipients WHERE assignment_id = ?');
+                $left->execute([$aid]);
+                if ((int)$left->fetchColumn() === 0) {
+                    $pdo->prepare('DELETE FROM assignments WHERE id = ?')->execute([$aid]);
+                    $message .= ' Отримувачів не лишилось — завдання видалено.';
+                }
+            }
         } elseif ($action === 'delete') {
             $stmt = $pdo->prepare('DELETE FROM assignments WHERE id = ?');
             $stmt->execute([(int)($_POST['assignment_id'] ?? 0)]);
@@ -115,6 +163,10 @@ $assignments = $pdo->query('
            (SELECT COUNT(*) FROM questions q WHERE q.topic_id = a.topic_id
               AND EXISTS (SELECT 1 FROM answers an WHERE an.question_id = q.id AND an.is_correct = 1)) AS ready_questions,
            COUNT(ar.id) AS recipients_count,
+           (SELECT GROUP_CONCAT(DISTINCT CONCAT(COALESCE(sc2.name, "Без школи"), " · ", COALESCE(c2.name, "—")) SEPARATOR "; ")
+              FROM assignment_recipients ar2 JOIN users u2 ON u2.id = ar2.user_id
+              LEFT JOIN schools sc2 ON sc2.id = u2.school_id LEFT JOIN classes c2 ON c2.id = u2.class_id
+              WHERE ar2.assignment_id = a.id) AS audience,
            SUM(ar.result_id IS NOT NULL) AS done_count
     FROM assignments a
     JOIN topics t ON a.topic_id = t.id
@@ -124,6 +176,38 @@ $assignments = $pdo->query('
     ORDER BY a.created_at DESC
     LIMIT 50
 ')->fetchAll();
+
+// Деталі: кому призначено (школа → клас → учень)
+$viewId = (int)($_GET['view'] ?? 0);
+$detail = null;
+if ($viewId > 0) {
+    $stmt = $pdo->prepare('
+        SELECT a.*, t.name AS topic_name, s.name AS subject_name FROM assignments a
+        JOIN topics t ON a.topic_id = t.id JOIN subjects s ON t.subject_id = s.id WHERE a.id = ?');
+    $stmt->execute([$viewId]);
+    $detail = $stmt->fetch() ?: null;
+    if ($detail) {
+        $stmt = $pdo->prepare('
+            SELECT u.id, u.first_name, u.last_name, u.school_id, u.class_id,
+                   sc.name AS school_name, c.name AS class_name, ar.result_id, tr.score_percent
+            FROM assignment_recipients ar
+            JOIN users u ON u.id = ar.user_id
+            LEFT JOIN schools sc ON sc.id = u.school_id
+            LEFT JOIN classes c ON c.id = u.class_id
+            LEFT JOIN test_results tr ON tr.id = ar.result_id
+            WHERE ar.assignment_id = ?
+            ORDER BY sc.name, u.class_id, u.last_name, u.first_name');
+        $stmt->execute([$viewId]);
+        $tree = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $sk = (int)$r['school_id'];
+            $ck = (int)$r['class_id'];
+            $tree[$sk]['name'] = $r['school_name'] ?? 'Без школи';
+            $tree[$sk]['classes'][$ck]['name'] = $r['class_name'] ?? 'Без класу';
+            $tree[$sk]['classes'][$ck]['users'][] = $r;
+        }
+    }
+}
 
 $pageTitle = 'Завдання';
 require_once __DIR__ . '/../includes/header.php';
@@ -136,6 +220,44 @@ require_once __DIR__ . '/../includes/header.php';
 
 <?php if ($message): ?><div class="alert alert-success"><?= e($message) ?></div><?php endif; ?>
 <?php if ($error): ?><div class="alert alert-error"><?= e($error) ?></div><?php endif; ?>
+
+<?php if ($detail): ?>
+<div class="admin-form-card">
+    <p><a href="/admin/assignments.php" class="btn btn-outline btn-sm">← До списку завдань</a></p>
+    <h2><?= e($detail['subject_name'] . ' · ' . $detail['topic_name']) ?></h2>
+    <p>
+        <span class="badge badge-info"><?= e(assignmentTypeLabel($detail['type'])) ?></span><?= gameBadge($detail['game'] ?? null) ?>
+        <small class="text-muted"> надіслано <?= date('d.m.Y H:i', strtotime($detail['created_at'])) ?></small>
+    </p>
+    <?php if (empty($tree)): ?>
+        <p class="text-muted">Невиконаних отримувачів не лишилось.</p>
+    <?php else: ?>
+        <p><?= cancelForm($csrfToken, (int)$detail['id'], 'all', 'Скасувати для всіх невиконаних', [], 'Скасувати завдання для всіх, хто ще не виконав?') ?></p>
+        <?php foreach ($tree as $sid => $school): ?>
+            <h3>🏛 <?= e($school['name']) ?>
+                <?= cancelForm($csrfToken, (int)$detail['id'], 'school', 'Скасувати для школи', ['school_id' => $sid], 'Скасувати для невиконаних учнів цієї школи?') ?></h3>
+            <?php foreach ($school['classes'] as $cid => $class): ?>
+                <h4>🏫 <?= e($class['name']) ?>
+                    <?= cancelForm($csrfToken, (int)$detail['id'], 'class', 'Скасувати для класу', ['school_id' => $sid, 'class_id' => $cid], 'Скасувати для невиконаних учнів цього класу?') ?></h4>
+                <div class="table-wrapper"><table class="admin-table">
+                    <thead><tr><th>Учень</th><th>Статус</th><th></th></tr></thead>
+                    <tbody>
+                    <?php foreach ($class['users'] as $u): ?>
+                        <tr>
+                            <td><?= e($u['last_name'] . ' ' . $u['first_name']) ?></td>
+                            <td><?php if ($u['result_id']): $g = scoreToGrade((float)$u['score_percent']); ?>
+                                <span class="score-badge <?= isGoodScore((float)$u['score_percent']) ? 'good' : 'bad' ?>"><?= $g ?> <?= gradeWord($g) ?></span>
+                                <?php else: ?><span class="badge badge-secondary">Очікує виконання</span><?php endif; ?></td>
+                            <td><?= $u['result_id'] ? '' : cancelForm($csrfToken, (int)$detail['id'], 'user', 'Скасувати', ['user_id' => $u['id']], 'Скасувати для цього учня?') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table></div>
+            <?php endforeach; ?>
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <div class="admin-form-card">
     <h2>Надіслати завдання</h2>
@@ -226,7 +348,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="results-table-wrapper">
         <table class="admin-table">
             <thead>
-                <tr><th>Тип</th><th>Предмет</th><th>Тема</th><th>Виконано</th><th>Дата</th><th></th></tr>
+                <tr><th>Тип</th><th>Предмет</th><th>Тема</th><th>Кому (школа · клас)</th><th>Виконано</th><th>Дата</th><th></th></tr>
             </thead>
             <tbody>
                 <?php foreach ($assignments as $a): ?>
@@ -239,10 +361,12 @@ require_once __DIR__ . '/../includes/header.php';
                                 <br><small class="text-danger">⚠ немає запитань з правильною відповіддю — учні не зможуть виконати</small>
                             <?php endif; ?>
                         </td>
+                        <td><small><?= e($a['audience'] ?? '—') ?></small></td>
                         <td><?= (int)$a['done_count'] ?> / <?= (int)$a['recipients_count'] ?></td>
                         <td><?= date('d.m.Y H:i', strtotime($a['created_at'])) ?></td>
                         <td>
-                            <form method="POST" action="" onsubmit="return confirm('Видалити завдання?');">
+                            <a href="?view=<?= (int)$a['id'] ?>" class="btn btn-sm btn-primary">Кому / скасувати</a>
+                            <form method="POST" action="" style="display:inline" onsubmit="return confirm('Видалити завдання повністю разом з історією виконання?');">
                                 <input type="hidden" name="csrf_token" value="<?= e($csrfToken) ?>">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="assignment_id" value="<?= (int)$a['id'] ?>">
